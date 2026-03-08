@@ -5,6 +5,7 @@
 #define G4_FRAMEWORK_BSP_SPI_H
 
 #include "main.h"
+#include "stm32g473xx.h"
 
 extern SPI_HandleTypeDef hspi2;
 #define ICM_SPI_HANDLE      &hspi2
