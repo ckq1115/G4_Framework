@@ -62,7 +62,7 @@ void MX_FDCAN1_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN FDCAN1_Init 2 */
-
+  hfdcan1.Instance->CCCR |= (1 << 7);
   /* USER CODE END FDCAN1_Init 2 */
 
 }

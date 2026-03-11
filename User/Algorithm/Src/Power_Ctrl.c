@@ -224,7 +224,7 @@ uint8_t chassis_power_control(CONTAL_Typedef *RUI_V_CONTAL_V,
         chassis_power_limit(&MOTOR->DJI_3508_Chassis_3, model->scaled_give_power[2], model);
         chassis_power_limit(&MOTOR->DJI_3508_Chassis_4, model->scaled_give_power[3], model);
     }
-    return RUI_DF_READY;
+    return DF_READY;
 }
 
 //功率计接收解算函数

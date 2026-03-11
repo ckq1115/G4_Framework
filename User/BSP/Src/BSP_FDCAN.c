@@ -33,23 +33,23 @@ void FDCAN_Config(FDCAN_HandleTypeDef *hfdcan, uint32_t fifo)
                                     FDCAN_FILTER_REMOTE, FDCAN_FILTER_REMOTE) != HAL_OK) Error_Handler();
 
     // 根据选择的 FIFO 开启对应的中断源
-    uint32_t it_source;
+    uint32_t it_source = FDCAN_IT_BUS_OFF |
+                         FDCAN_IT_ARB_PROTOCOL_ERROR |
+                         FDCAN_IT_DATA_PROTOCOL_ERROR;
     if (fifo == FDCAN_RX_FIFO0)
     {
-        it_source = FDCAN_IT_RX_FIFO0_NEW_MESSAGE |   // 新消息到达
-                    FDCAN_IT_RX_FIFO0_FULL |           // FIFO满（预警）
-                    FDCAN_IT_RX_FIFO0_MESSAGE_LOST;    // 消息丢失（溢出）
-        // 可选：FDCAN_IT_RX_FIFO0_WATERMARK         // 水线中断（FIFO填充到一定程度）
+        it_source = FDCAN_IT_RX_FIFO0_NEW_MESSAGE |
+                    FDCAN_IT_RX_FIFO0_FULL |
+                    FDCAN_IT_RX_FIFO0_MESSAGE_LOST;
     }
     else // FDCAN_RX_FIFO1
     {
-        it_source = FDCAN_IT_RX_FIFO1_NEW_MESSAGE |   // 新消息到达
-                    FDCAN_IT_RX_FIFO1_FULL |           // FIFO满（预警）
-                    FDCAN_IT_RX_FIFO1_MESSAGE_LOST;    // 消息丢失（溢出）
-        // 可选：FDCAN_IT_RX_FIFO1_WATERMARK
+        it_source = FDCAN_IT_RX_FIFO1_NEW_MESSAGE |
+                    FDCAN_IT_RX_FIFO1_FULL |
+                    FDCAN_IT_RX_FIFO1_MESSAGE_LOST;
     }
     if (HAL_FDCAN_ActivateNotification(hfdcan, it_source, 0) != HAL_OK) Error_Handler();
-    // 启动 FDCAN 外设
+
     if (HAL_FDCAN_Start(hfdcan) != HAL_OK) Error_Handler();
 }
 
@@ -103,4 +103,47 @@ uint8_t FDCAN_Send_Msg(FDCAN_HandleTypeDef *hfdcan, uint32_t id, uint8_t *data, 
         .MessageMarker = 0 // 消息标记，用户自定义用途
     };
     return (HAL_FDCAN_AddMessageToTxFifoQ(hfdcan, &TxHeader, data) == HAL_OK) ? 0 : 1;
+}
+
+/**
+ * @brief FDCAN 错误回调函数（覆盖 HAL 库的弱定义）
+ * @param hfdcan 发生错误的 FDCAN 句柄
+ */
+void HAL_FDCAN_ErrorCallback(FDCAN_HandleTypeDef *hfdcan)
+{
+    FDCAN_ProtocolStatusTypeDef protocolStatus;
+
+    HAL_FDCAN_GetProtocolStatus(hfdcan, &protocolStatus);
+
+    if (protocolStatus.BusOff == 1)
+    {
+        static uint32_t last_recovery_time[3] = {0};
+        uint32_t now = HAL_GetTick();
+
+        uint8_t idx = 0;
+        uint32_t target_fifo = FDCAN_RX_FIFO0;
+
+        if (hfdcan->Instance == FDCAN1)
+        {
+            idx = 0;
+            target_fifo = FDCAN_RX_FIFO0;
+        }
+        else if (hfdcan->Instance == FDCAN2)
+        {
+            idx = 1;
+            target_fifo = FDCAN_RX_FIFO1;
+        }
+        else if (hfdcan->Instance == FDCAN3)
+        {
+            idx = 2;
+            target_fifo = FDCAN_RX_FIFO0;
+        }
+
+        if ((now - last_recovery_time[idx]) > 100)
+        {
+            last_recovery_time[idx] = now;
+
+            FDCAN_Config(hfdcan, target_fifo);
+        }
+    }
 }
