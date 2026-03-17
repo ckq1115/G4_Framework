@@ -106,13 +106,12 @@ uint8_t FDCAN_Send_Msg(FDCAN_HandleTypeDef *hfdcan, uint32_t id, uint8_t *data, 
 }
 
 /**
- * @brief FDCAN 错误回调函数（覆盖 HAL 库的弱定义）
+ * @brief FDCAN 错误回调函数
  * @param hfdcan 发生错误的 FDCAN 句柄
  */
 void HAL_FDCAN_ErrorCallback(FDCAN_HandleTypeDef *hfdcan)
 {
     FDCAN_ProtocolStatusTypeDef protocolStatus;
-
     HAL_FDCAN_GetProtocolStatus(hfdcan, &protocolStatus);
 
     if (protocolStatus.BusOff == 1)
@@ -142,7 +141,6 @@ void HAL_FDCAN_ErrorCallback(FDCAN_HandleTypeDef *hfdcan)
         if ((now - last_recovery_time[idx]) > 100)
         {
             last_recovery_time[idx] = now;
-
             FDCAN_Config(hfdcan, target_fifo);
         }
     }

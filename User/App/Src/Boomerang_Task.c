@@ -337,5 +337,5 @@ void Ctrl_Test_Task(void) {
                   All_Motor.DJI_2006_Yaw.DATA.Speed_now,
                   All_Motor.DJI_2006_Yaw.PID_P.Output);
 
-    DJI_Motor_Send(&hfdcan3, 0x200, All_Motor.DJI_3508_Pull.PID_S.Output, 0, 0, 0);
+    //DJI_Motor_Send(&hfdcan3, 0x200, All_Motor.DJI_3508_Pull.PID_S.Output, 0, 0, 0);
 }

@@ -85,7 +85,7 @@ CCM_FUNC void mahony_update(struct MAHONY_FILTER_t *f,
     float32_t gyro_norm;
     arm_sqrt_f32(sum_sq, &gyro_norm);
     // 静态判定：加速度接近重力，陀螺仪接近静止，两个数都不建议大于0.1
-    int is_static = (fabsf(f->acc_norm - 9.81f) < 0.09f) && (gyro_norm < 0.015f);
+    int is_static = (fabsf(f->acc_norm - 9.81f) < 0.1f) && (gyro_norm < 0.02f);
 
     if (is_static)
     {

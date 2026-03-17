@@ -79,6 +79,7 @@ void Motor_Task(void *argument)
     for(;;)
     {
         Chassis_Control_Task(&All_Motor);
+        //DM_Motor_Send(&hfdcan2,0x4FE,3,0,0,0);
         //W25N01GV_ReadID(flash_id);// ID 应该是 EF AA 21
         VOFA_justfloat(
             IMU_Data.pitch,
@@ -88,7 +89,7 @@ void Motor_Task(void *argument)
             All_Motor.DJI_3508_Chassis[1].DATA.Speed_now,
             All_Motor.DJI_3508_Chassis[2].PID_S.Output,
             All_Motor.DJI_3508_Chassis[2].DATA.Speed_now,
-            m,All_Power.P5.power,60);
+            m,All_Power.P4.power-11.5,50);
         osDelay(1);
     }
 }
@@ -98,7 +99,7 @@ void Test_Task(void *argument)
     Test_Init();
     for(;;)
     {
-        Ctrl_Test_Task();
+        //Ctrl_Test_Task();
         osDelay(5);
     }
 }
@@ -109,6 +110,10 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size){
         if (Size == 18){
             DBUS_Resolved(DBUS_RX_DATA, &C_DBUS, &C_DBUS_UNION);
         }
+    }
+    if (huart->Instance == USART1){
+        WS2812_SetPixel(1, 0, 0, 255); // 接收完成后设置LED1为蓝色，表示接收成功
+        // 处理USART1接收完成事件（如果需要）
     }
 }
 
@@ -170,8 +175,8 @@ CCM_FUNC void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t Rx
                 case 0x204:
                     DJI_Motor_Resolve(&All_Motor.DJI_3508_Chassis[3], data);
                     break;
-                case 0x605:
-                    CAN_POWER_Rx(&All_Power.P5, data);
+                case 0x604:
+                    CAN_POWER_Rx(&All_Power.P4, data);
                     break;
                 default:
                     break;
@@ -194,8 +199,7 @@ CCM_FUNC void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t Rx
                     break;
             }
         }
-        // 安全保护：避免死循环（理论上不应该发生）
-        if (fill_level > 64) break; // FIFO最大深度一般不超过64
+        if (fill_level > 64) break; // 安全保护，防止死循环
     }
 }
 
@@ -238,6 +242,9 @@ CCM_FUNC void HAL_FDCAN_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t Rx
                 case 0x207:
                     // GM6020_Decode(&All_Motor.GM6020_1, data);
                     break;
+                case 0x305:
+                    DM_1to4_Resolve(&All_Motor.DM4310_Pitch, data);
+                    break;
                 case 0x605:
                     CAN_POWER_Rx(&All_Power.P5, data);
                     break;
@@ -245,7 +252,6 @@ CCM_FUNC void HAL_FDCAN_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t Rx
                     break;
             }
         }
-        // 安全保护
         if (fill_level > 64) break;
     }
 }

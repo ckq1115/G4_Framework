@@ -17,87 +17,109 @@ void Power_control_init(model_t *model)
     model->PID_Buffer.ILt = 0;
     model->PID_Buffer.AlLt = 100;
 
-    model->k1 = 1.9231391337e-02f;//kt：M3508鼙鼓的转矩常数Nm/A,对应机械功率项，与转速和电流乘积成正比
-    model->k2 = 1.7416871226e-01f;//kr：M3508鼙鼓和C620电调的电阻Ω，对应铜损项，与电流平方成正比
-    model->k3 = 1.9560518379e-05f;//k_iron：M3508电机铁损系数 (W/(rad/s)²)，对应铁损项（磁滞/涡流损耗），与转速平方成正比
-    model->k4 = 2.1291187956e+00f;//k0：M3508电机和C620电调的静态功率W，对应固定损耗项，与转速和电流无关
+    model->k1 = 1.9851375306e-02f;//kt：M3508鼙鼓的转矩常数Nm/A,对应机械功率项，与转速和电流乘积成正比
+    model->k2 = 1.6020757489e-01f;//kr：M3508鼙鼓和C620电调的电阻Ω，对应铜损项，与电流平方成正比
+    model->k3 = 1.6222387185e-05f;//k_iron：M3508电机铁损系数 (W/(rad/s)²)，对应铁损项（磁滞/涡流损耗），与转速平方成正比
+    model->k4 = 2.2053869352e+00f;//k0：M3508电机和C620电调的静态功率W，对应固定损耗项，与转速和电流无关
 
     model->rpm_to_rad = 2.0f * 3.1415926f / 60.0f;//RPM转rad/s
 }
 
-/**
-  * @author: 楠
-  * @performance: 电机功率计算函数
-  * @parameter: 电机结构体
-  * @time: 24-4-1
-  * @ReadMe: 依靠电机功率模型计算电机功率
- */
-float get_initial_power(DJI_MOTOR_Typedef *MOTOR, model_t *model)
+float chassis_power_model(MOTOR_Typdef *MOTOR, model_t *model)
 {
-    float w = MOTOR->DATA.Speed_now * model->rpm_to_rad;   // rad/s
-    float I = MOTOR->PID_S.Output * 0.001f;
+    DJI_MOTOR_Typedef *motor[4] =
+    {
+        &MOTOR->DJI_3508_Chassis_1,
+        &MOTOR->DJI_3508_Chassis_2,
+        &MOTOR->DJI_3508_Chassis_3,
+        &MOTOR->DJI_3508_Chassis_4
+    };
 
-    float power = model->k1 * w * I
-                + model->k2 * I * I
-                + model->k3 * w * w
-                + model->k4;
+    float sum_wi = 0;
+    float sum_i2 = 0;
+    float sum_w2 = 0;
+
+    for(int i = 0; i < 4; i++)
+    {
+        float w = motor[i]->DATA.Speed_now * model->rpm_to_rad;
+        float I = motor[i]->PID_S.Output * 0.001f;
+
+        sum_wi += w * I;
+        sum_i2 += I * I;
+        sum_w2 += w * w;
+    }
+
+    float power = model->k1 * sum_wi
+                + model->k2 * sum_i2
+                + model->k3 * sum_w2
+                + model->k4 * 4;
 
     if(power < 0) power = 0;
 
     return power;
 }
 
-/**
-  * @author: 楠
-  * @performance: 电机功率限制函数
-  * @parameter: 电机结构体
-  * @time: 24-4-1
-  * @ReadMe: 对电机功率进行缩放进行功率再分配
- */
-void chassis_power_limit(DJI_MOTOR_Typedef *MOTOR,
-                         float P_limit,
-                         model_t *model)
+void chassis_power_distribute(MOTOR_Typdef *MOTOR,
+                              float P_limit,
+                              model_t *model)
 {
-    float w = MOTOR->DATA.Speed_now * model->rpm_to_rad;
-    float I_old = MOTOR->PID_S.Output * 0.001f;
-
-    /* 当前功率 */
-    float P_now = model->k1 * w * I_old
-                + model->k2 * I_old * I_old
-                + model->k3 * w * w
-                + model->k4;
-
-    if(P_now <= P_limit)
-        return;
-
-    /* 构造二次方程 */
-    float A = model->k2;
-    float B = model->k1 * w;
-    float C = model->k3 * w * w + model->k4 - P_limit;
-
-    float discriminant = B*B - 4*A*C;
-
-    if(discriminant <= 0.0f)
+    DJI_MOTOR_Typedef *motor[4] =
     {
-        MOTOR->PID_S.Output = 0;
-        return;
+        &MOTOR->DJI_3508_Chassis_1,
+        &MOTOR->DJI_3508_Chassis_2,
+        &MOTOR->DJI_3508_Chassis_3,
+        &MOTOR->DJI_3508_Chassis_4
+    };
+
+    float I_cmd[4];
+
+    float A = 0.0f;
+    float B = 0.0f;
+    float C = 4 * model->k4 - P_limit;
+
+    for(int i = 0; i < 4; i++)
+    {
+        I_cmd[i] = motor[i]->PID_S.Output;
     }
 
-    float sqrt_d = sqrtf(discriminant);
+    for(int i = 0; i < 4; i++)
+    {
+        float w = motor[i]->DATA.Speed_now * model->rpm_to_rad;
+        float I = I_cmd[i] * 0.001f;
 
-    float I1 = (-B + sqrt_d) / (2*A);
-    float I2 = (-B - sqrt_d) / (2*A);
+        A += model->k2 * I * I;
+        B += model->k1 * w * I;
+        C += model->k3 * w * w;
+    }
 
-    /* 选与原电流同号解 */
-    float I_final;
+    float P_predict = A + B + C;
 
-    if(I_old >= 0)
-        I_final = (I1 >= 0) ? I1 : I2;
+    if(P_predict <= P_limit)
+        return;
+
+    float s = 1.0f;
+
+    if(A < 1e-6f)
+    {
+        s = 0.0f;
+    }
     else
-        I_final = (I1 < 0) ? I1 : I2;
+    {
+        float discriminant = B * B - 4.0f * A * C;
 
+        if(discriminant >= 0)
+            s = (-B + sqrtf(discriminant)) / (2.0f * A);
+        else
+            s = 0.0f;
+    }
 
-    MOTOR->PID_S.Output = I_final * 1000.0f;
+    if(s > 1.0f) s = 1.0f;
+    if(s < 0.0f) s = 0.0f;
+
+    for(int i = 0; i < 4; i++)
+    {
+        motor[i]->PID_S.Output *= s;
+    }
 }
 
 float SectionLimit_f(float max, float min, float data)
@@ -163,8 +185,6 @@ uint8_t chassis_power_control(CONTAL_Typedef *RUI_V_CONTAL_V,
     uint16_t max_power_limit = 80;  //最大功率限制
     float input_power = 0;		    // 输入功率（裁判系统）
     float chassis_max_power = 0;
-    float initial_give_power[4];    // 初始功率由PID计算以及电机数据得到
-    float initial_total_power = 0;
 
     if(usr_data->robot_status.chassis_power_limit != 0 )
     {
@@ -196,34 +216,9 @@ uint8_t chassis_power_control(CONTAL_Typedef *RUI_V_CONTAL_V,
         chassis_max_power = input_power;
     }
 
-    //得到初始电机功率
-    initial_give_power[0] = get_initial_power(&MOTOR->DJI_3508_Chassis_1, model);
-    initial_give_power[1] = get_initial_power(&MOTOR->DJI_3508_Chassis_2, model);
-    initial_give_power[2] = get_initial_power(&MOTOR->DJI_3508_Chassis_3, model);
-    initial_give_power[3] = get_initial_power(&MOTOR->DJI_3508_Chassis_4, model);
-
-    for(uint8_t i = 0; i < 4; i++)
-    {
-        if (initial_give_power[i] < 0) // 不考虑负功(反向电动势)
-            continue;
-        initial_total_power += initial_give_power[i]; // 获得底盘总功率
-    }
-
-    if (initial_total_power > chassis_max_power) // 确定是否大于最大功率
-    {
-        float power_scale = chassis_max_power / initial_total_power;
-
-        for(uint8_t i = 0; i < 4; i++)
-        {
-            model->scaled_give_power[i] = initial_give_power[i] * power_scale; // 获得缩放功率
-        }
-
-        //对每个电机分别进行功率限制
-        chassis_power_limit(&MOTOR->DJI_3508_Chassis_1, model->scaled_give_power[0], model);
-        chassis_power_limit(&MOTOR->DJI_3508_Chassis_2, model->scaled_give_power[1], model);
-        chassis_power_limit(&MOTOR->DJI_3508_Chassis_3, model->scaled_give_power[2], model);
-        chassis_power_limit(&MOTOR->DJI_3508_Chassis_4, model->scaled_give_power[3], model);
-    }
+    chassis_power_distribute(MOTOR,
+                         chassis_max_power,
+                         model);
     return DF_READY;
 }
 

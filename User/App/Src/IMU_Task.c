@@ -127,10 +127,7 @@ CCM_FUNC void IMU_Update_Task(float dt_s)
             imu_ctrl_state = TEMP_PID_CTRL;
 #endif
 #ifdef RELEASE_MODE
-            IMU_Data.gyro_correct[0] = 0.00413000258f;
-            IMU_Data.gyro_correct[1] = -0.0189137105f;
-            IMU_Data.gyro_correct[2] = -0.000697744836f;
-            imu_ctrl_state = FUSION_RUN;
+            imu_ctrl_state = GYRO_CALIB;
 #endif
             break;
 
@@ -181,7 +178,7 @@ CCM_FUNC void IMU_Update_Task(float dt_s)
 
         case FUSION_RUN:
             WS2812_SetPixel(0, 0, 60, 0);    // 绿色：正常运行
-            //HAL_TIM_PWM_Start(&htim20, TIM_CHANNEL_2);// 陀螺仪零漂收集结束后开启蜂鸣器
+            HAL_TIM_PWM_Start(&htim20, TIM_CHANNEL_2);// 陀螺仪零漂收集结束后开启蜂鸣器
             const float AXIS_DIR[3] = {1.0f, -1.0f, -1.0f};// 根据安装方向调整轴向，确保输出符合右手坐标系
             for (int i = 0; i < 3; i++) {
                 IMU_Data.gyro[i] = (IMU_Data.gyro[i] - IMU_Data.gyro_correct[i]) * AXIS_DIR[i];
@@ -249,8 +246,8 @@ void IMU_Gyro_Zero_Calibration_Task(void)
         // 方差公式：Var = E(x²) - (E(x))²
         float gyro_var  = (gyro_sq_sum[i] * div) - (mean_g * mean_g);
         float accel_var = (accel_sq_sum[i] * div) - (mean_a * mean_a);
-        // 判定阈值，如果任一轴的方差超过0.005f，认为数据不稳定，需重新采集
-        if (gyro_var > 0.003f || accel_var > 0.002f)
+        // 判定阈值，如果超过阈值，认为数据不稳定，需重新采集
+        if (gyro_var > 0.002f || accel_var > 0.0015f)
         {
             is_stable = 0;
             break;
