@@ -11,6 +11,10 @@ DBUS_UNION_Typdef C_DBUS_UNION = { 0 };
 CCM_DATA MOTOR_Typdef All_Motor;
 CCM_DATA ROOT_STATUS_Typedef ROOT_Status;
 
+CONTAL_Typedef contal;
+CAP_RXDATA CAP_Get;
+User_Data_T User_data;
+ALL_RX_Data_T Referee_Rx_Buf;
 uint32_t stm32_id[3];
 void Get_UID(uint32_t *uid) {
     uid[0] = HAL_GetUIDw0();
@@ -21,17 +25,18 @@ void All_Init() {
     DWT_Init(170);
     Get_UID(stm32_id);
     /* 清除串口错误标志 */
-    HAL_DMA_DeInit(&hdma_usart3_rx);
-    HAL_DMA_Init(&hdma_usart3_rx);
     HAL_UART_DMAStop(&huart3);
-    __HAL_UART_CLEAR_OREFLAG(&huart3);
-    __HAL_UART_CLEAR_FEFLAG(&huart3);
-    __HAL_UART_CLEAR_NEFLAG(&huart3);
-    __HAL_UART_CLEAR_PEFLAG(&huart3);
-    volatile uint32_t tmp = huart3.Instance->RDR;
-    (void)tmp;
-    //__HAL_DMA_DISABLE_IT(huart1.hdmarx, DMA_IT_HT);//关闭 DMA 半传中断
+    __HAL_UART_CLEAR_FLAG(&huart3, UART_CLEAR_OREF | UART_CLEAR_FEF | UART_CLEAR_NEF | UART_CLEAR_PEF);
+    volatile uint32_t tmp3 = huart3.Instance->RDR;
+    (void)tmp3;
+    __HAL_DMA_DISABLE_IT(huart3.hdmarx, DMA_IT_HT);//关闭 DMA 半传中断
     HAL_UARTEx_ReceiveToIdle_DMA(&huart3,DBUS_RX_DATA,18);//启动 DMA + IDLE
+    HAL_UART_DMAStop(&huart1);
+    __HAL_UART_CLEAR_FLAG(&huart1, UART_CLEAR_OREF | UART_CLEAR_FEF | UART_CLEAR_NEF | UART_CLEAR_PEF);
+    volatile uint32_t tmp1 = huart1.Instance->RDR;
+    (void)tmp1;
+    __HAL_DMA_DISABLE_IT(huart1.hdmarx, DMA_IT_HT);//关闭 DMA 半传中断
+    HAL_UARTEx_ReceiveToIdle_DMA(&huart1,Referee_Rx_Buf.Data,255);//启动 DMA + IDLE
     FDCAN_Config(&hfdcan1, FDCAN_RX_FIFO0);
     FDCAN_Config(&hfdcan2, FDCAN_RX_FIFO1);
     FDCAN_Config(&hfdcan3, FDCAN_RX_FIFO0);
@@ -44,5 +49,5 @@ void All_Init() {
     __HAL_TIM_SET_COMPARE(&htim20, TIM_CHANNEL_2, 100.0);
     HAL_Delay(500);
     __HAL_TIM_SET_COMPARE(&htim20, TIM_CHANNEL_2, 0);
-    //HAL_TIM_PWM_Stop(&htim20, TIM_CHANNEL_2);
+    HAL_TIM_PWM_Stop(&htim20, TIM_CHANNEL_2);
 }

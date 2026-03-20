@@ -29,7 +29,7 @@ typedef struct
     uint8_t fusion_enabled;    // 融合算法使能
 } IMU_CTRL_FLAG_t;
 
-typedef struct
+typedef struct __attribute__((aligned(8)))
 {
     float gyro_correct[3];
     float accel_bias[3];     //加速度计零偏标定

@@ -86,10 +86,10 @@ void Motor_Task(void *argument)
             IMU_Data.roll,
             IMU_Data.yaw,
             IMU_Data.YawTotalAngle,
-            All_Motor.DJI_3508_Chassis[1].DATA.Speed_now,
+            User_data.power_heat_data.buffer_energy,
             All_Motor.DJI_3508_Chassis[2].PID_S.Output,
             All_Motor.DJI_3508_Chassis[2].DATA.Speed_now,
-            m,All_Power.P4.power-11.5,50);
+            m,All_Power.P4.power-11.5,User_data.robot_status.chassis_power_limit);
         osDelay(1);
     }
 }
@@ -113,7 +113,9 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size){
     }
     if (huart->Instance == USART1){
         WS2812_SetPixel(1, 0, 0, 255); // 接收完成后设置LED1为蓝色，表示接收成功
-        // 处理USART1接收完成事件（如果需要）
+        Read_Data_first(&Referee_Rx_Buf, &User_data, Size);
+        memset((uint8_t*)Referee_Rx_Buf.Data,0,Size);
+        WS2812_SetPixel(1, 0, 0, 0);
     }
 }
 

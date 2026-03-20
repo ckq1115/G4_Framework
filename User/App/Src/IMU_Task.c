@@ -29,7 +29,7 @@ CCM_DATA IMU_CTRL_STATE_e imu_ctrl_state = TEMP_INIT;// 当前控制状态
 CCM_DATA IMU_CTRL_FLAG_t  imu_ctrl_flag  = {0};// 控制状态标志
 CCM_DATA PID_t imu_temp;
 CCM_DATA FuzzyRule_t fuzzy_rule_temp;
-CCM_DATA IMU_Data_t IMU_Data = {
+IMU_Data_t IMU_Data = {
     /*.accel_bias = {-0.0018742225f, -0.0085052567f, -0.3006388713f},
     .accel_scale = {0.9930995110f, 0.9944899028f, 0.9923243716f}*/
     .accel_bias = {-0.0039012455f, -0.0100767006f, -0.2877107718f},
@@ -121,7 +121,7 @@ CCM_FUNC void IMU_Update_Task(float dt_s)
     {
         case TEMP_INIT:
             IMU_Temp_Control_Init();
-            IMU_QuaternionEKF_Init(10, 0.001f, 1000000, 0.9996f, 0.001f,0);
+            //IMU_QuaternionEKF_Init(10, 0.001f, 1000000, 0.9996f, 0.001f,0);
             mahony_init(&mahony_filter, 5.0f, 0.01f, 0.001f);
 #ifdef DEBUG_MODE
             imu_ctrl_state = TEMP_PID_CTRL;
@@ -178,7 +178,7 @@ CCM_FUNC void IMU_Update_Task(float dt_s)
 
         case FUSION_RUN:
             WS2812_SetPixel(0, 0, 60, 0);    // 绿色：正常运行
-            HAL_TIM_PWM_Start(&htim20, TIM_CHANNEL_2);// 陀螺仪零漂收集结束后开启蜂鸣器
+            //HAL_TIM_PWM_Start(&htim20, TIM_CHANNEL_2);// 陀螺仪零漂收集结束后开启蜂鸣器
             const float AXIS_DIR[3] = {1.0f, -1.0f, -1.0f};// 根据安装方向调整轴向，确保输出符合右手坐标系
             for (int i = 0; i < 3; i++) {
                 IMU_Data.gyro[i] = (IMU_Data.gyro[i] - IMU_Data.gyro_correct[i]) * AXIS_DIR[i];
@@ -296,29 +296,13 @@ void IMU_Gyro_Calib_Initiate(void)
 void IMU_Status_Check(void) {
     static float last_sum = 0;
     static uint16_t stuck_cnt = 0;
-    static uint16_t zero_cnt = 0; // 新增：全零检测计数器
-
-    static uint16_t nan_cnt = 0;  // NaN检测计数器
-
-    // NaN检测
-    uint8_t is_nan = 0;
-    // 一次性检测加速度、陀螺仪所有轴 + 温度是否存在NaN
-    is_nan = (isnanf(IMU_Data.accel[0]) || isnanf(IMU_Data.accel[1]) || isnanf(IMU_Data.accel[2]) ||
-              isnanf(IMU_Data.gyro[0])  || isnanf(IMU_Data.gyro[1])  || isnanf(IMU_Data.gyro[2])  ||
-              isnanf(IMU_Data.temp));
-    // 连续2个周期检测到NaN才判定异常
-    if (is_nan) {
-        nan_cnt = (nan_cnt >= 2) ? 2 : nan_cnt + 1;  // 防止溢出
-        if (nan_cnt >= 2) imu_ctrl_state = ERROR_STATE;
-    } else {
-        nan_cnt = 0;
-    }
+    static uint16_t zero_cnt = 0;
 
     // 静态零值检测，判断加速度或陀螺仪是否全为0
     if ((fabsf(IMU_Data.accel[0]) < 1e-6f && fabsf(IMU_Data.accel[1]) < 1e-6f && fabsf(IMU_Data.accel[2]) < 1e-6f)
      || (fabsf(IMU_Data.gyro[0]) < 1e-6f && fabsf(IMU_Data.gyro[1]) < 1e-6f && fabsf(IMU_Data.gyro[2]) < 1e-6f))
     {
-        if (++zero_cnt >= 2) { // 连续2个周期全为0才判定为异常
+        if (++zero_cnt >= 4) { // 连续4个周期全为0才判定为异常
             imu_ctrl_state = ERROR_STATE;
         }
     } else {

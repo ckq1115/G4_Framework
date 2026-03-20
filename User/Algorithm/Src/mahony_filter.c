@@ -85,11 +85,11 @@ CCM_FUNC void mahony_update(struct MAHONY_FILTER_t *f,
     float32_t gyro_norm;
     arm_sqrt_f32(sum_sq, &gyro_norm);
     // 静态判定：加速度接近重力，陀螺仪接近静止，两个数都不建议大于0.1
-    int is_static = (fabsf(f->acc_norm - 9.81f) < 0.1f) && (gyro_norm < 0.02f);
+    int is_static = (fabsf(f->acc_norm - 9.81f) < 0.09f) && (gyro_norm < 0.015f);
 
     if (is_static)
     {
-        const float learn_rate = 0.005f;   // 零偏学习率：调大收敛更快，调小更稳定
+        const float learn_rate = 0.006f;   // 零偏学习率：调大收敛更快，调小更稳定
         f->gyro_bias.x = (1 - learn_rate) * f->gyro_bias.x + learn_rate * gx;
         f->gyro_bias.y = (1 - learn_rate) * f->gyro_bias.y + learn_rate * gy;
         f->gyro_bias.z = (1 - learn_rate) * f->gyro_bias.z + learn_rate * gz;

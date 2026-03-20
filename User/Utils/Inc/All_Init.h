@@ -37,6 +37,12 @@ extern DBUS_UNION_Typdef C_DBUS_UNION;
 
 extern MOTOR_Typdef All_Motor;
 
+extern CONTAL_Typedef contal;
+extern CAP_RXDATA CAP_Get;
+
+extern ALL_RX_Data_T Referee_Rx_Buf;
+extern User_Data_T User_data;
+
 extern ROOT_STATUS_Typedef ROOT_Status;
 void All_Init(void);
 #endif //G4_FRAMEWORK_ALL_INIT_H

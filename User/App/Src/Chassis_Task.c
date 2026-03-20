@@ -10,7 +10,7 @@
 
 OmniInit_typdef OmniInit_t;
 PID_t PID_Chassis_Angle;
-
+model_t chassis_model;
 float Ramp_Control(float target,
                           float current,
                           float accel_up,     // 加速度
@@ -88,17 +88,14 @@ uint8_t Chassis_Control_Init(MOTOR_Typdef *MOTOR)
              Integral_Limit|ErrorHandle//积分限幅,输出滤波,堵转监测
              //梯形积分,变速积分
              );//微分先行,微分滤波器
+    Power_control_init(&chassis_model);
     return DF_READY;
 }
 
-/*const float k1 = 1.9231391337e-02f;//kt：M3508鼙鼓的转矩常数Nm/A,对应机械功率项，与转速和电流乘积成正比
-const float k2 = 1.7416871226e-01f;//kr：M3508鼙鼓和C620电调的电阻Ω，对应铜损项，与电流平方成正比
-const float k3 = 1.9560518379e-05f;//k_iron：M3508电机铁损系数 (W/(rad/s)²)，对应铁损项（磁滞/涡流损耗），与转速平方成正比
-const float k4 = 1.5791187956e+00f;//k0：M3508电机和C620电调的静态功率W，对应固定损耗项，与转速和电流无关*/
-const float k1 = 1.9851375306e-02f;
-const float k2 = 1.6020757489e-01f;
-const float k3 = 1.6222387185e-05f;
-const float k4 = 2.2053869352e+00f;
+const float k1 = 1.5756155501e-02f;//kt：M3508鼙鼓的转矩常数Nm/A,对应机械功率项，与转速和电流乘积成正比
+const float k2 = 1.1584598349e-01f;//kr：M3508鼙鼓和C620电调的电阻Ω，对应铜损项，与电流平方成正比
+const float k3 = 1.9202168378e-05f;//k_iron：M3508电机铁损系数 (W/(rad/s)²)，对应铁损项（磁滞/涡流损耗），与转速平方成正比
+const float k4 = 2.157075052e+00f;//k0：M3508电机和C620电调的静态功率W，对应固定损耗项，与转速和电流无关
 const float rpm_to_rad = 2.0f * 3.1415926f / 60.0f;//RPM 转 rad/s 的换算常数
 float Chassis_Power_Model(MOTOR_Typdef *MOTOR)
 {
@@ -109,7 +106,7 @@ float Chassis_Power_Model(MOTOR_Typdef *MOTOR)
     for (int i = 0; i < 4; i++)
     {
         float w = MOTOR->DJI_3508_Chassis[i].DATA.Speed_now;
-        float I = MOTOR->DJI_3508_Chassis[i].DATA.current * 0.001f;
+        float I = MOTOR->DJI_3508_Chassis[i].DATA.current * 20 / 16384;
 
         w = w * rpm_to_rad;
 
@@ -129,12 +126,12 @@ static void Chassis_Power_Distribute(MOTOR_Typdef *MOTOR, float I_cmd[4], float 
 {
     float A = 0.0f;
     float B = 0.0f;
-    float C = 4 * k4 - P_limit; // 4个电机的静态功耗减去总功率限制
+    float C = 4- P_limit; // 4个电机的静态功耗减去总功率限制
 
     for(int i = 0; i < 4; i++)
     {
         float w = MOTOR->DJI_3508_Chassis[i].DATA.Speed_now * rpm_to_rad;
-        float I = I_cmd[i] * 0.001f;
+        float I = I_cmd[i] * 20/16384;
 
         A += k2 * I * I;
         B += k1 * w * I;
@@ -244,7 +241,7 @@ void Chassis_Control_Task(MOTOR_Typdef *MOTOR)
 
     vx_set = Ramp_Control(vx_target, vx_set, 5000, 7000, dt);
     vy_set = Ramp_Control(vy_target, vy_set, 5000, 7000, dt);
-    vw_set = Ramp_Control(vw_target, vw_set, 2000, 10000, dt);
+    vw_set = Ramp_Control(vw_target, vw_set, 500, 10000, dt);
 
     Omni_calc(wheel_rpm, vx_set, vy_set, vw_set, &OmniInit_t);
 
@@ -255,27 +252,28 @@ void Chassis_Control_Task(MOTOR_Typdef *MOTOR)
                       wheel_rpm[i]);
     }
 
-    m = Chassis_Power_Model(MOTOR);
+    /*m = Chassis_Power_Model(MOTOR);
 
     float I_cmd[4];
     for(uint8_t i = 0; i < 4; i++)
     {
         I_cmd[i] = MOTOR->DJI_3508_Chassis[i].PID_S.Output;
     }
-    float P_limit = 60.0f;
+    float P_limit = User_data.robot_status.chassis_power_limit;
     Chassis_Power_Distribute(MOTOR, I_cmd, P_limit);
     if (C_DBUS.Remote.S2_u8 == 2) {
         for (int i = 0; i < 4; i++) {
             MOTOR->DJI_3508_Chassis[i].PID_S.Output = 0;
             I_cmd[i] = 0;
         }
-    }
+    }*/
+    chassis_power_control(&contal,&User_data,&chassis_model,&CAP_Get,&All_Motor);
     if (C_DBUS.DBUS_ONLINE_JUDGE_TIME >= 5) {
-        DJI_Motor_Send(&hfdcan1,0x200,I_cmd[0],I_cmd[1],I_cmd[2],I_cmd[3]);
-        /*DJI_Motor_Send(&hfdcan1,0x200,MOTOR->DJI_3508_Chassis[0].PID_S.Output,
+        //DJI_Motor_Send(&hfdcan1,0x200,I_cmd[0],I_cmd[1],I_cmd[2],I_cmd[3]);
+        DJI_Motor_Send(&hfdcan1,0x200,MOTOR->DJI_3508_Chassis[0].PID_S.Output,
             MOTOR->DJI_3508_Chassis[1].PID_S.Output,
             MOTOR->DJI_3508_Chassis[2].PID_S.Output,
-            MOTOR->DJI_3508_Chassis[3].PID_S.Output);*/
+            MOTOR->DJI_3508_Chassis[3].PID_S.Output);
     }
     else {
         DJI_Motor_Send(&hfdcan1,0x200,0,0,0,0);

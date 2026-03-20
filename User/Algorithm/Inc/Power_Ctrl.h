@@ -38,6 +38,10 @@ typedef struct
 }model_t;
 
 void Power_control_init(model_t *model);
+void chassis_power_distribute(DJI_MOTOR_Typedef *motor[4],
+                                 float I_cmd[4],
+                                 float P_limit,
+                                 model_t *model);
 uint8_t chassis_power_control(CONTAL_Typedef *RUI_V_CONTAL_V,
                            User_Data_T *usr_data,
                            model_t *model,
