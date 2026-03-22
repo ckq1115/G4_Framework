@@ -29,7 +29,7 @@ CCM_DATA IMU_CTRL_STATE_e imu_ctrl_state = TEMP_INIT;// 当前控制状态
 CCM_DATA IMU_CTRL_FLAG_t  imu_ctrl_flag  = {0};// 控制状态标志
 CCM_DATA PID_t imu_temp;
 CCM_DATA FuzzyRule_t fuzzy_rule_temp;
-CCM_DATA IMU_Data_t IMU_Data = {
+IMU_Data_t IMU_Data = {
     /*.accel_bias = {-0.0018742225f, -0.0085052567f, -0.3006388713f},
     .accel_scale = {0.9930995110f, 0.9944899028f, 0.9923243716f}*/
     .accel_bias = {-0.0039012455f, -0.0100767006f, -0.2877107718f},
@@ -121,16 +121,13 @@ CCM_FUNC void IMU_Update_Task(float dt_s)
     {
         case TEMP_INIT:
             IMU_Temp_Control_Init();
-            IMU_QuaternionEKF_Init(10, 0.001f, 1000000, 0.9996f, 0.001f,0);
+            //IMU_QuaternionEKF_Init(10, 0.001f, 1000000, 0.9996f, 0.001f,0);
             mahony_init(&mahony_filter, 5.0f, 0.01f, 0.001f);
 #ifdef DEBUG_MODE
             imu_ctrl_state = TEMP_PID_CTRL;
 #endif
 #ifdef RELEASE_MODE
-            IMU_Data.gyro_correct[0] = 0.00413000258f;
-            IMU_Data.gyro_correct[1] = -0.0189137105f;
-            IMU_Data.gyro_correct[2] = -0.000697744836f;
-            imu_ctrl_state = FUSION_RUN;
+            imu_ctrl_state = GYRO_CALIB;
 #endif
             break;
 
@@ -249,8 +246,8 @@ void IMU_Gyro_Zero_Calibration_Task(void)
         // 方差公式：Var = E(x²) - (E(x))²
         float gyro_var  = (gyro_sq_sum[i] * div) - (mean_g * mean_g);
         float accel_var = (accel_sq_sum[i] * div) - (mean_a * mean_a);
-        // 判定阈值，如果任一轴的方差超过0.005f，认为数据不稳定，需重新采集
-        if (gyro_var > 0.003f || accel_var > 0.002f)
+        // 判定阈值，如果超过阈值，认为数据不稳定，需重新采集
+        if (gyro_var > 0.002f || accel_var > 0.0015f)
         {
             is_stable = 0;
             break;
@@ -299,29 +296,13 @@ void IMU_Gyro_Calib_Initiate(void)
 void IMU_Status_Check(void) {
     static float last_sum = 0;
     static uint16_t stuck_cnt = 0;
-    static uint16_t zero_cnt = 0; // 新增：全零检测计数器
-
-    static uint16_t nan_cnt = 0;  // NaN检测计数器
-
-    // NaN检测
-    uint8_t is_nan = 0;
-    // 一次性检测加速度、陀螺仪所有轴 + 温度是否存在NaN
-    is_nan = (isnanf(IMU_Data.accel[0]) || isnanf(IMU_Data.accel[1]) || isnanf(IMU_Data.accel[2]) ||
-              isnanf(IMU_Data.gyro[0])  || isnanf(IMU_Data.gyro[1])  || isnanf(IMU_Data.gyro[2])  ||
-              isnanf(IMU_Data.temp));
-    // 连续2个周期检测到NaN才判定异常
-    if (is_nan) {
-        nan_cnt = (nan_cnt >= 2) ? 2 : nan_cnt + 1;  // 防止溢出
-        if (nan_cnt >= 2) imu_ctrl_state = ERROR_STATE;
-    } else {
-        nan_cnt = 0;
-    }
+    static uint16_t zero_cnt = 0;
 
     // 静态零值检测，判断加速度或陀螺仪是否全为0
     if ((fabsf(IMU_Data.accel[0]) < 1e-6f && fabsf(IMU_Data.accel[1]) < 1e-6f && fabsf(IMU_Data.accel[2]) < 1e-6f)
      || (fabsf(IMU_Data.gyro[0]) < 1e-6f && fabsf(IMU_Data.gyro[1]) < 1e-6f && fabsf(IMU_Data.gyro[2]) < 1e-6f))
     {
-        if (++zero_cnt >= 2) { // 连续2个周期全为0才判定为异常
+        if (++zero_cnt >= 4) { // 连续4个周期全为0才判定为异常
             imu_ctrl_state = ERROR_STATE;
         }
     } else {

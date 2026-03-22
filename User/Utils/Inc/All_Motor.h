@@ -7,6 +7,7 @@
 
 #include "DJI_Motor.h"
 #include "DM_Motor.h"
+#include "LK_Motor.h"
 
 typedef struct
 {
@@ -28,6 +29,7 @@ typedef struct
     DJI_MOTOR_Typedef DJI_3508_Chassis_4;
     DM_MOTOR_Typdef DM4310_Pitch;
     DM_MOTOR_Typdef DM4310_Yaw;
+    LK_MOTOR_Typedef LK9025_Yaw;
 }MOTOR_Typdef;
 
 typedef struct

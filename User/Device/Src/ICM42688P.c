@@ -83,7 +83,7 @@ uint8_t ICM42688_Init(void) {
     vTaskDelay(pdMS_TO_TICKS(50));
 
     // 6. default ODR/FSR
-    ICM42688_SetFormat(ODR_1kHz, ACCEL_FS_8G, ODR_1kHz, GYRO_FS_2000DPS);
+    ICM42688_SetFormat(ODR_1kHz, ACCEL_FS_16G, ODR_1kHz, GYRO_FS_2000DPS);
 
     ICM42688_Config_AAF(1, 7, 49, 9);
     ICM42688_Config_AAF(0, 7, 49, 9);

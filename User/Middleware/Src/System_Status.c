@@ -96,7 +96,7 @@ static const Status_t Display_Map[] = {
 void LED_Show_Status(ROOT_STATUS_Typedef *Root)
 {
     const Status_t *dbus  = &Display_Map[Root->RM_DBUS];
-    const Status_t *motor = &Display_Map[Root->MOTOR_Chassis_1&&Root->MOTOR_Chassis_3&&Root->MOTOR_Chassis_3&&Root->MOTOR_Chassis_4];
+    const Status_t *motor = &Display_Map[Root->MOTOR_Chassis_1&&Root->MOTOR_Chassis_2&&Root->MOTOR_Chassis_3&&Root->MOTOR_Chassis_4];
 
     WS2812_SetPixel(2, motor->r, motor->g, motor->b);
     WS2812_UpdateBreathing(2, motor->breathe);

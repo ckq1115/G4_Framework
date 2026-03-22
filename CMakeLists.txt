@@ -1,18 +1,22 @@
 cmake_minimum_required(VERSION 3.22)
 
-# 1. 项目基础设置
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS ON)
 
+# C++ 编译器配置
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS ON)
+
 set(CMAKE_PROJECT_NAME G4_FRAMEWORK)
 project(${CMAKE_PROJECT_NAME})
 
-# 启用 C 和 汇编语言支持
-enable_language(C ASM)
+# 开启C、汇编、C++语言支持
+enable_language(C ASM CXX)
 set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 
-# 2. 调试/发布模式差异化配置
+# 调试/发布模式差异化配置
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Debug")
 endif()
@@ -25,9 +29,7 @@ set(CMAKE_C_FLAGS_DEBUG "-Og -g3 -fno-omit-frame-pointer -fno-lto")
 # Release：极致性能，利用FPU/DSP，开启LTO和循环优化，兼顾精度
 set(CMAKE_C_FLAGS_RELEASE "-O3 -ffast-math -funroll-loops -frename-registers -finline-small-functions")
 
-# ------------------------------------------------------------------------------
-# 3. 硬件架构参数
-# ------------------------------------------------------------------------------
+# 硬件架构参数
 set(CPU_FLAGS
         -mcpu=cortex-m4
         -mthumb
@@ -37,9 +39,8 @@ set(CPU_FLAGS
 
 link_directories(${CMAKE_CURRENT_SOURCE_DIR}/Drivers/CMSIS/DSP/Lib/GCC)
 
-# ------------------------------------------------------------------------------
-# 4. 编译选项
-# ------------------------------------------------------------------------------
+
+# 编译选项
 add_compile_options(
         ${CPU_FLAGS}
         # 基础警告（保留关键，关闭无关）
@@ -60,9 +61,7 @@ add_compile_options(
         -DARM_MATH_ROUNDING=0      # 关闭DSP库舍入（提升速度）
 )
 
-# ------------------------------------------------------------------------------
-# 5. 链接选项（精细化控制 + 性能优化）
-# ------------------------------------------------------------------------------
+# 链接选项
 add_link_options(
         ${CPU_FLAGS}
         -Wl,--gc-sections                     # 移除未使用段
@@ -72,17 +71,13 @@ add_link_options(
         # LTO：仅Release开启，Debug关闭（通过CMAKE_EXE_LINKER_FLAGS控制）
 )
 
-# --------------------------
-# 关键修改2：LTO 差异化控制
-# --------------------------
+# LTO 差异化控制
 # Debug：关闭LTO（避免调试符号混淆）
 set(CMAKE_EXE_LINKER_FLAGS_DEBUG "-fno-lto")
 # Release：开启LTO并自动并行（提升编译速度+代码优化）
 set(CMAKE_EXE_LINKER_FLAGS_RELEASE "-flto=auto")
 
-# ------------------------------------------------------------------------------
-# 6. 可执行文件定义
-# ------------------------------------------------------------------------------
+# 可执行文件定义
 add_executable(${CMAKE_PROJECT_NAME}
         User/App/Src/All_Task.c
         User/Utils/Inc/Vofa.h
@@ -147,6 +142,10 @@ add_executable(${CMAKE_PROJECT_NAME}
         User/App/Src/Boomerang_Task.c
         User/Device/Inc/serial_servo.h
         User/Device/Src/serial_servo.c
+        User/Device/Inc/LK_Motor.h
+        User/Device/Src/LK_Motor.c
+        User/Device/Inc/VT13.h
+        User/Device/Src/VT13.c
 )
 
 # 添加用户源文件
@@ -176,9 +175,7 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
         Drivers/CMSIS/Device/ST/STM32G4xx/Include
 )
 
-# ------------------------------------------------------------------------------
-# 7. 链接 STM32CubeMX 生成的 HAL 库
-# ------------------------------------------------------------------------------
+# 链接 STM32CubeMX 生成的 HAL 库
 add_subdirectory(cmake/stm32cubemx)
 
 target_link_libraries(${PROJECT_NAME}
@@ -187,9 +184,7 @@ target_link_libraries(${PROJECT_NAME}
         m                    # 数学库
 )
 
-# ------------------------------------------------------------------------------
-# 8. 宏定义（强化DSP/FPU）
-# ------------------------------------------------------------------------------
+# 宏定义（强化DSP/FPU）
 target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
         STM32G473xx
         USE_HAL_DRIVER
@@ -206,9 +201,7 @@ else()
     target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE RELEASE_MODE)
 endif()
 
-# ------------------------------------------------------------------------------
-# 9. 生成辅助文件 (Hex, Bin)
-# ------------------------------------------------------------------------------
+# 生成辅助文件 (Hex, Bin)
 set(HEX_FILE ${PROJECT_BINARY_DIR}/${CMAKE_PROJECT_NAME}.hex)
 set(BIN_FILE ${PROJECT_BINARY_DIR}/${CMAKE_PROJECT_NAME}.bin)
 
