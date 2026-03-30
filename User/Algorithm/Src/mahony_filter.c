@@ -110,7 +110,7 @@ CCM_FUNC void mahony_update(struct MAHONY_FILTER_t *f,
         float32_t norm = arm_invSqrt(ax*ax + ay*ay + az*az);
         ax *= norm; ay *= norm; az *= norm;
 
-        // 叉乘计算误差 (计算重力向量在机体系的投影误差)
+        // 叉乘计算重力向量在机体系的投影误差
         ex = ay * f->rMat[2][2] - az * f->rMat[2][1];
         ey = az * f->rMat[2][0] - ax * f->rMat[2][2];
 
@@ -146,14 +146,11 @@ CCM_FUNC void mahony_output(struct MAHONY_FILTER_t *f) {
 
     float sqrt_val;
     arm_sqrt_f32(1.0f - r20 * r20, &sqrt_val);
-    // 1. Pitch: 注意符号
-    // 原公式 pitch = -asin(r20) = -atan2(r20, sqrt(1-r20^2))
+    //使用CORDIC优化计算
     f->pitch = -CORDIC_Atan2_Fast(r20, sqrt_val);
-    // 2. Roll: atan2(r21, r22)
     f->roll  = CORDIC_Atan2_Fast(f->rMat[2][1], f->rMat[2][2]);
-    // 3. Yaw: atan2(r10, r00)
     f->yaw   = CORDIC_Atan2_Fast(f->rMat[1][0], f->rMat[0][0]);
-    // --- 偏航角累加逻辑 ---
+
     float yaw_diff = f->yaw - f->last_yaw;
     if (yaw_diff > 180.0f)  yaw_diff -= 360.0f;
     else if (yaw_diff < -180.0f) yaw_diff += 360.0f;
