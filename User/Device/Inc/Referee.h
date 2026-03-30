@@ -7,39 +7,46 @@
 #include "CRC_DJI.h"
 
 /* 帧长度 */
-#define REFEREE_RXFRAME_LENGTH 136 //frame_header 5bytes , cmd_id 2bytes , data_max 127bytes , crc16 2bytes = 136bytes
-#define FrameHeader_Length 5U /*!< the length of frame header */
-#define CMDID_Length 2U /*!< the length of CMD ID */
-#define CRC16_Length 2U /*!< the length of CRC ID */
+#define REFEREE_RXFRAME_LENGTH 136
+#define FrameHeader_Length 5U
+#define CMDID_Length 2U
+#define CRC16_Length 2U
 
 /* ==================== CMD ID ==================== */
 enum Read_Cmd_ID_Typdef
 {
-    game_state      = 0x0001,
-    Match_results   = 0x0002,
-    Robot_HP        = 0x0003,
-    Venue_Events    = 0x0101,
-    Referee_warning = 0x0104,
-    Dart_fire       = 0x0105,
-    Robot_performan = 0x0201,
-    time_power      = 0x0202,
-    Robot_location  = 0x0203,
-    Robot_buff      = 0x0204,
-    Damage_status   = 0x0206,
-    time_shooting   = 0x0207,
-    Allowable_ammo  = 0x0208,
-    RFID            = 0x0209,
-    Dart_directives = 0x020A,
-    Ground_location = 0x020B,
-    Radar_Marking   = 0x020C,
-    Route_Informat  = 0x020D,
-    Radar_Informat  = 0x020E,
+    game_state                 = 0x0001,
+    Match_results              = 0x0002,
+    Robot_HP                   = 0x0003,
+    Venue_Events               = 0x0101,
+    Referee_warning            = 0x0104,
+    Dart_fire                  = 0x0105,
+    Robot_performan            = 0x0201,
+    time_power                 = 0x0202,
+    Robot_location             = 0x0203,
+    Robot_buff                 = 0x0204,
+    Damage_status              = 0x0206,
+    time_shooting              = 0x0207,
+    Allowable_ammo             = 0x0208,
+    RFID_status                = 0x0209,
+    Dart_directives            = 0x020A,
+    Ground_location            = 0x020B,
+    Radar_Marking              = 0x020C,
+    Route_Informat             = 0x020D,
+    Radar_Informat             = 0x020E,
 
-    Robot_Interaction = 0x0301,
-    Minimap           = 0x0303,
+    Robot_Interaction          = 0x0301,
+    Custom_controller_to_robot = 0x0302,
+    Minimap                    = 0x0303,
+    Map_receive_radar          = 0x0305,
+    Custom_controller_to_map   = 0x0306,
+    Map_receive_path           = 0x0307,
+    Map_receive_robot_info     = 0x0308,
+    Robot_to_custom_controller = 0x0309,
+    Robot_to_custom_client     = 0x0310,
+    Custom_client_to_robot     = 0x0311
 };
 
-/* ==================== 帧头 ==================== */
 typedef struct __packed
 {
     uint8_t  SOF;
@@ -47,8 +54,6 @@ typedef struct __packed
     uint8_t  Seq;
     uint8_t  CRC8;
 } frame_header_R_Typdef;
-
-/* ==================== 基础数据 ==================== */
 
 typedef struct __packed
 {
@@ -75,7 +80,10 @@ typedef struct __packed
     uint16_t ally_base_HP;
 } game_robot_HP_t;
 
-/* ==================== 状态数据 ==================== */
+typedef struct __packed
+{
+    uint32_t event_data;
+} event_data_t;
 
 typedef struct __packed
 {
@@ -87,10 +95,7 @@ typedef struct __packed
 typedef struct __packed
 {
     uint8_t dart_remaining_time;
-    uint16_t bit0_2 : 3;
-    uint16_t bit3_5 : 3;
-    uint16_t bit6_8 : 3;
-    uint16_t bit9_15 : 7;
+    uint16_t dart_info;
 } dart_info_t;
 
 typedef struct __packed
@@ -109,9 +114,9 @@ typedef struct __packed
 
 typedef struct __packed
 {
-    uint16_t chassis_voltage;
-    uint16_t chassis_current;
-    float chassis_power;
+    uint16_t reserved_1;
+    uint16_t reserved_2;
+    float reserved_3;
     uint16_t buffer_energy;
     uint16_t shooter_17mm_barrel_heat;
     uint16_t shooter_42mm_barrel_heat;
@@ -131,6 +136,7 @@ typedef struct __packed
     uint8_t defence_buff;
     uint8_t vulnerability_buff;
     uint16_t attack_buff;
+    uint8_t remaining_energy;
 } buff_t;
 
 typedef struct __packed
@@ -155,7 +161,19 @@ typedef struct __packed
     uint16_t projectile_allowance_fortress;
 } projectile_allowance_t;
 
-/* ==================== 位置 / 雷达 ==================== */
+typedef struct __packed
+{
+    uint32_t rfid_status;
+    uint8_t rfid_status_2;
+} rfid_status_t;
+
+typedef struct __packed
+{
+    uint8_t dart_launch_opening_status;
+    uint8_t reserved;
+    uint16_t target_change_time;
+    uint16_t latest_launch_cmd_time;
+} dart_client_cmd_t;
 
 typedef struct __packed
 {
@@ -167,37 +185,25 @@ typedef struct __packed
     float standard_3_y;
     float standard_4_x;
     float standard_4_y;
-    float reserved_5_x;
-    float reserved_5_y;
+    float reserved_1;
+    float reserved_2;
 } ground_robot_position_t;
 
 typedef struct __packed
 {
-    uint16_t mark_hero_progress:1;
-    uint16_t mark_engineer_progress:1;
-    uint16_t mark_standard_3_progress:1;
-    uint16_t mark_standard_4_progress:1;
-    uint16_t mark_air_progress:1;
-    uint16_t mark_sentry_progress:1;
-    uint16_t bit6:1;
-    uint16_t bit7:1;
-    uint16_t bit8:1;
-    uint16_t bit9:1;
-    uint16_t bit10:1;
-    uint16_t bit11:1;
-    uint16_t bit12_15:4;
+    uint16_t mark_progress;
 } radar_mark_data_t;
 
 typedef struct __packed
 {
-    uint8_t vulnerable_begin : 2;
-    uint8_t vulnerable_now : 1;
-    uint8_t bit3_4 : 2;
-    uint8_t bit5 :1;
-    uint8_t bit6_7 : 2;
-} radar_info_t;
+    uint32_t sentry_info;
+    uint16_t sentry_info_2;
+} sentry_info_t;
 
-/* ==================== 交互数据（重点） ==================== */
+typedef struct __packed
+{
+    uint8_t radar_info;
+} radar_info_t;
 
 typedef struct __packed
 {
@@ -235,70 +241,74 @@ typedef struct __packed
     uint8_t Character[30];
 } graphic_data_struct_t;
 
-/* ==================== 小地图 ==================== */
-
 typedef struct __packed
 {
     float target_position_x;
     float target_position_y;
     uint8_t cmd_keyboard;
     uint8_t target_robot_id;
-    uint8_t cmd_source;
+    uint16_t cmd_source;
 } map_command_t;
 
-/* ==================== 发送用结构体（补齐旧工程） ==================== */
-
-typedef struct
+typedef struct __packed
 {
-    uint32_t bit0       :1;
-    uint32_t bit1       :1;
-    uint32_t bit2_12    :11;
-    uint32_t bit13_16   :4;
-    uint32_t bit17_20   :4;
-    uint32_t bit21_22   :2;
-    uint32_t bit23      :1;
-    uint32_t bit24_31   :8;
+    uint32_t sentry_cmd;
 } sentry_cmd_t;
 
 typedef struct __packed
 {
-    uint8_t cmd;
-    uint8_t robot_id;
-    float x;
-    float y;
+    uint8_t radar_cmd;
+    uint8_t password_cmd;
+    uint8_t password_1;
+    uint8_t password_2;
+    uint8_t password_3;
+    uint8_t password_4;
+    uint8_t password_5;
+    uint8_t password_6;
 } radar_cmd_t;
 
 typedef struct __packed
 {
-    uint16_t target_robot_id;
-    float target_position_x;
-    float target_position_y;
+    uint16_t hero_position_x;
+    uint16_t hero_position_y;
+    uint16_t engineer_position_x;
+    uint16_t engineer_position_y;
+    uint16_t infantry_3_position_x;
+    uint16_t infantry_3_position_y;
+    uint16_t infantry_4_position_x;
+    uint16_t infantry_4_position_y;
+    uint16_t reserved_1;
+    uint16_t reserved_2;
+    uint16_t sentry_position_x;
+    uint16_t sentry_position_y;
 } map_robot_data_t;
 
 typedef struct __packed
 {
     uint8_t intention;
-    float start_position_x;
-    float start_position_y;
-    float delta_x[49];
-    float delta_y[49];
+    uint16_t start_position_x;
+    uint16_t start_position_y;
+    int8_t delta_x[49];
+    int8_t delta_y[49];
+    uint16_t sender_id;
 } map_data_t;
 
 typedef struct __packed
 {
-    uint8_t data[30];
+    uint16_t sender_id;
+    uint16_t receiver_id;
+    uint8_t user_data[30];
 } custom_info_t;
 
-typedef struct
+typedef struct __packed
 {
-    uint32_t bit0       :1;
-    uint32_t bit1       :1;
-    uint32_t bit2       :1;
-    uint32_t bit3_22    :20;
-    uint32_t bit23_24   :2;
-    uint32_t bit25_31   :7;
-} event_data_t;
-/* ==================== 用户数据 ==================== */
+    uint16_t key_value;
+    uint16_t x_position:12;
+    uint16_t mouse_left:4;
+    uint16_t y_position:12;
+    uint16_t mouse_right:4;
+    uint16_t reserved;
+} custom_client_data_t;
 
 typedef struct __packed
 {
@@ -315,9 +325,12 @@ typedef struct __packed
     hurt_data_t hurt_data;
     shoot_data_t shoot_data;
     projectile_allowance_t projectile_allowance;
+    rfid_status_t rfid_status;
+    dart_client_cmd_t dart_client_cmd;
 
     ground_robot_position_t ground_robot_position;
     radar_mark_data_t radar_mark_data;
+    sentry_info_t sentry_info;
     radar_info_t radar_info;
 
     map_command_t map_command;
@@ -325,8 +338,6 @@ typedef struct __packed
     custom_info_t custom_info;
 
 } User_Data_T;
-
-/* ==================== DMA解析用 ==================== */
 
 typedef union
 {
@@ -356,12 +367,8 @@ typedef union
 
 } ALL_RX_Data_T;
 
-/* ==================== 外部变量 ==================== */
-
 extern uint8_t Referee_Rx_Buf[2][REFEREE_RXFRAME_LENGTH];
 extern User_Data_T User_data;
-
-/* ==================== 接口 ==================== */
 
 void Referee_System_Frame_Update(uint8_t *Buff);
 

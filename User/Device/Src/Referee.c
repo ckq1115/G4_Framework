@@ -1,11 +1,8 @@
 #include "Referee.h"
 #include <stdbool.h>
-#include "CRC_DJI.h"
 
-/* ==================== 全局变量 ==================== */
 uint8_t Referee_System_Info_MultiRx_Buf[2][REFEREE_RXFRAME_LENGTH];
 
-/* ==================== 私有函数声明 ==================== */
 static void Referee_System_Info_Update(uint16_t cmd_id, uint8_t *data_ptr, User_Data_T *usr_data);
 
 /**
@@ -36,7 +33,6 @@ void Referee_System_Frame_Update(uint8_t *Buff)
 
                 data_ptr = &Buff[index + FrameHeader_Length + CMDID_Length];
 
-                /* 更新数据 */
                 Referee_System_Info_Update(cmd_id, data_ptr, &User_data);
             }
             else
@@ -53,9 +49,6 @@ void Referee_System_Frame_Update(uint8_t *Buff)
     }
 }
 
-/**
-  * @brief  根据 cmd_id 更新数据（新版协议）
-  */
 static void Referee_System_Info_Update(uint16_t cmd_id, uint8_t *data_ptr, User_Data_T *usr_data)
 {
     switch (cmd_id)
@@ -70,6 +63,10 @@ static void Referee_System_Info_Update(uint16_t cmd_id, uint8_t *data_ptr, User_
 
         case Robot_HP:
             memcpy(&usr_data->game_robot_HP, data_ptr, sizeof(game_robot_HP_t));
+            break;
+
+        case Venue_Events:
+            memcpy(&usr_data->event_data, data_ptr, sizeof(event_data_t));
             break;
 
         case Referee_warning:
@@ -108,12 +105,24 @@ static void Referee_System_Info_Update(uint16_t cmd_id, uint8_t *data_ptr, User_
             memcpy(&usr_data->projectile_allowance, data_ptr, sizeof(projectile_allowance_t));
             break;
 
+        case RFID_status:
+            memcpy(&usr_data->rfid_status, data_ptr, sizeof(rfid_status_t));
+            break;
+
+        case Dart_directives:
+            memcpy(&usr_data->dart_client_cmd, data_ptr, sizeof(dart_client_cmd_t));
+            break;
+
         case Ground_location:
             memcpy(&usr_data->ground_robot_position, data_ptr, sizeof(ground_robot_position_t));
             break;
 
         case Radar_Marking:
             memcpy(&usr_data->radar_mark_data, data_ptr, sizeof(radar_mark_data_t));
+            break;
+
+        case Route_Informat:
+            memcpy(&usr_data->sentry_info, data_ptr, sizeof(sentry_info_t));
             break;
 
         case Radar_Informat:
@@ -125,7 +134,7 @@ static void Referee_System_Info_Update(uint16_t cmd_id, uint8_t *data_ptr, User_
             break;
 
         case Robot_Interaction:
-            // 如果你后面要用 UI/通信，可以打开
+            // 如果后面要用 UI/通信，可以打开
             // memcpy(&usr_data->interaction, data_ptr, sizeof(robot_interaction_data_t));
             break;
 

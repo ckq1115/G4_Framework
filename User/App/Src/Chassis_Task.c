@@ -48,13 +48,9 @@ float Ramp_Control(float target,
 uint8_t Chassis_Control_Init(MOTOR_Typdef *MOTOR)
 {
     OmniInit(&OmniInit_t);
-    float PID_F_0[3] = {0,0,0};
     float PID_S_0[3] = {5.0f,0.01f,0};
-    float PID_F_1[3] = {0,0,0};
     float PID_S_1[3] = {5.0f,0.01f,0};
-    float PID_F_2[3] = {0,0,0};
     float PID_S_2[3] = {5.0f,0.01f,0};
-    float PID_F_3[3] = {0,0,0};
     float PID_S_3[3] = {5.0f,0.01f,0};
     float PID_Angle[3] = {9.0f,0,0};
 
@@ -102,8 +98,6 @@ void Chassis_Control_Task(MOTOR_Typdef *MOTOR)
     float vy_target = 0;
     static float yaw_in = 0;
 
-    static float Chassis_Target_Yaw = 0.0f;
-    static float theta = 0.0f;
     if (C_DBUS.Remote.S2_u8 == 1) {
         vx_target = C_DBUS.Remote.CH0_int16 * 3.0f;
         vy_target = C_DBUS.Remote.CH1_int16 * 3.0f;

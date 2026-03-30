@@ -97,6 +97,7 @@ void Motor_Task(void *argument)
 
 void Test_Task(void *argument)
 {
+    (void)argument;
     Test_Init();
     for(;;)
     {
