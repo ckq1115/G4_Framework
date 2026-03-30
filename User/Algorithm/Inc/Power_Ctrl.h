@@ -53,14 +53,16 @@ typedef struct {
     float bus_volt;
     float current;
     float power;
+    float buffer_energy;
 } Power_Typedef;
 
 typedef struct {
-    Power_Typedef P1, P2, P3, P4, P5;
+    Power_Typedef P_Chassis;
 } ALL_POWER_RX;
 
 extern ALL_POWER_RX All_Power;
 
 void CAN_POWER_Rx(Power_Typedef* pPower, uint8_t *rx_data);
+void Buffer_Calc(Power_Typedef* Power,User_Data_T *user_data);
 
 #endif //G4_FRAMEWORK_POWER_CTRL_H

@@ -89,9 +89,8 @@ void Motor_Task(void *argument)
             User_data.power_heat_data.buffer_energy,
             All_Motor.DJI_3508_Chassis[2].PID_S.Output,
             All_Motor.DJI_3508_Chassis[2].DATA.Speed_now,
-            0,
-            All_Power.P4.power-11.5,
-            User_data.robot_status.chassis_power_limit);
+            All_Power.P_Chassis.power,
+            All_Power.P_Chassis.buffer_energy,0);
         osDelay(1);
     }
 }
@@ -114,10 +113,8 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size){
         }
     }
     if (huart->Instance == USART1){
-        WS2812_SetPixel(1, 0, 0, 255); // 接收完成后设置LED1为蓝色，表示接收成功
-        Read_Data_first(&Referee_Rx_Buf, &User_data, Size);
-        memset(Referee_Rx_Buf.Data,0,Size);
-        WS2812_SetPixel(1, 0, 0, 0);
+        Referee_System_Frame_Update(Referee_Rx_Buf[0]);
+        HAL_UARTEx_ReceiveToIdle_DMA(huart,Referee_Rx_Buf[0],REFEREE_RXFRAME_LENGTH);
     }
 }
 
@@ -179,8 +176,9 @@ CCM_FUNC void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t Rx
                 case 0x204:
                     DJI_Motor_Resolve(&All_Motor.DJI_3508_Chassis[3], data);
                     break;
-                case 0x604:
-                    CAN_POWER_Rx(&All_Power.P4, data);
+                case 0x601:
+                    CAN_POWER_Rx(&All_Power.P_Chassis, data);
+                    Buffer_Calc(&All_Power.P_Chassis, &User_data);
                     break;
                 default:
                     break;
@@ -195,9 +193,6 @@ CCM_FUNC void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t Rx
                     break;
                 case 0x202:
                     DJI_Motor_Resolve(&All_Motor.DJI_2006_Yaw, data);
-                    break;
-                case 0x605:
-                    CAN_POWER_Rx(&All_Power.P5, data);
                     break;
                 default:
                     break;
@@ -248,9 +243,6 @@ CCM_FUNC void HAL_FDCAN_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t Rx
                     break;
                 case 0x305:
                     DM_1to4_Resolve(&All_Motor.DM4310_Pitch, data);
-                    break;
-                case 0x605:
-                    CAN_POWER_Rx(&All_Power.P5, data);
                     break;
                 default:
                     break;

@@ -15,7 +15,7 @@ CONTAL_Typedef contal;
 CAP_RXDATA CAP_Get;
 
 User_Data_T User_data;
-ALL_RX_Data_T Referee_Rx_Buf;
+uint8_t Referee_Rx_Buf[2][REFEREE_RXFRAME_LENGTH];
 
 uint32_t stm32_id[3];
 void Get_UID(uint32_t *uid) {
@@ -39,7 +39,7 @@ void All_Init() {
     volatile uint32_t tmp1 = huart1.Instance->RDR;
     (void)tmp1;
     __HAL_DMA_DISABLE_IT(huart1.hdmarx, DMA_IT_HT);//关闭 DMA 半传中断
-    HAL_UARTEx_ReceiveToIdle_DMA(&huart1,Referee_Rx_Buf.Data,255);//裁判系统串口
+    HAL_UARTEx_ReceiveToIdle_DMA(&huart1, Referee_Rx_Buf[0], REFEREE_RXFRAME_LENGTH);//裁判系统串口
 
     FDCAN_Config(&hfdcan1, FDCAN_RX_FIFO0);
     FDCAN_Config(&hfdcan2, FDCAN_RX_FIFO1);
