@@ -19,6 +19,7 @@ typedef struct
     DJI_MOTOR_Typedef DJI_3508_Shoot_M;
 
     DJI_MOTOR_Typedef DJI_3508_Chassis[4];
+    DJI_MOTOR_Typedef DJI_6020_Steer[4];
 
     DJI_MOTOR_Typedef DJI_3508_Pull;
     DJI_MOTOR_Typedef DJI_2006_Trigger;

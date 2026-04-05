@@ -7,16 +7,11 @@
 #include "DJI_Motor.h"
 #include "All_Define.h"
 #include <math.h>
-CCM_DATA ALL_POWER_RX All_Power;
 
 void Power_control_init(model_t *model)
 {
-    model->PID_Buffer.Kp = 0.3f;
-    model->PID_Buffer.Ki = 0;
-    model->PID_Buffer.Kd = 0;
-    model->PID_Buffer.ILt = 0;
-    model->PID_Buffer.AlLt = 100;
-
+    model->Kp = 0.3f;
+    model->Remaining_Buffer = 25.0f;
     //对于使用M3508电机鼙鼓的底盘，以下参数不要改，参数和减速箱以及底盘均无关，无论负载多少以及减速箱类型，这四个参数均适用
     model->k1 = 1.5756155501e-02f;//kt：M3508鼙鼓的转矩常数Nm/A,对应机械功率项，与转速和电流乘积成正比
     model->k2 = 1.1584598349e-01f;//kr：M3508鼙鼓和C620电调的电阻Ω，对应铜损项，与电流平方成正比
@@ -121,32 +116,6 @@ float SectionLimit_f(float max, float min, float data)
 
 /**
   * @author: 楠
-  * @performance: 缓冲能量PID计算
-  * @parameter: PID 缓冲能量 要求剩余的最低缓冲能量
-  * @time: 24-4-1
-  * @ReadMe:
- */
-void PID_buffer(PID_buffer_t *PID_buffer, float power_buffer, float temp)
-{
-    PID_buffer->Error[0] = temp - power_buffer;
-    /*比例输出*/
-    PID_buffer->P_out = (PID_buffer->Error[0] * PID_buffer->Kp);
-    /*积分输出*/
-    PID_buffer->I_out += (PID_buffer->Error[0] * PID_buffer->Ki);
-    /*积分限幅*/
-    PID_buffer->I_out = SectionLimit_f(PID_buffer->ILt, -PID_buffer->ILt, PID_buffer->I_out);
-    /*微分输出*/
-    PID_buffer->D_out = -(PID_buffer->Error[0] - PID_buffer->Error[1]) * PID_buffer->Kd;
-    /*数据迭代*/
-    PID_buffer->Error[1] = PID_buffer->Error[0];
-    /*角度环总输出*/
-    PID_buffer->All_out = (PID_buffer->P_out + PID_buffer->I_out + PID_buffer->D_out);
-    /*总输出限幅*/
-    PID_buffer->All_out = SectionLimit_f(PID_buffer->AlLt, -PID_buffer->AlLt, PID_buffer->All_out);
-}
-
-/**
-  * @author: 楠
   * @performance: 功率控制总函数
   * @parameter: 电容标志位（是否开启）
   * @time: 24-4-1
@@ -178,9 +147,7 @@ uint8_t chassis_power_control(CONTAL_Typedef *RUI_V_CONTAL_V,
     float chassis_power_buffer = usr_data->power_heat_data.buffer_energy;	// 得到缓冲能量
 
     /*没电容时开启*/
-    PID_buffer(&model->PID_Buffer, chassis_power_buffer, 25);  // 缓冲能量闭环
-
-    input_power = (float)max_power_limit - model->PID_Buffer.All_out;  // 加入缓冲能量
+    input_power = (float)max_power_limit;  // 加入缓冲能量
     //input_power = (float)max_power_limit;
     if(CAP_GET->CAP_VOLT > (float)capValt)
     {
@@ -252,27 +219,22 @@ void CAN_POWER_Rx(Power_Typedef* Power, uint8_t *rx_data)
 //缓冲能量计算
 void Buffer_Calc(Power_Typedef* Power, User_Data_T *user_data)
 {
-    static int count = 0;
     static uint8_t is_initialized = 0;
 
     if (!is_initialized) {
         Power->buffer_energy = 60.0f;
         is_initialized = 1;
     }
-    count++;
-    if (count >= 100) {
-        count = 0;
-        float power_limit = 75.0f;
-        float max_buffer_energy = 60.0f;
-        // power_limit = user_data->robot_status.chassis_power_limit;
-        float now_power = Power->power;
-        Power->buffer_energy += (power_limit - now_power) * 0.1f;
+    float power_limit = 75.0f;
+    float max_buffer_energy = 60.0f;
+    // power_limit = user_data->robot_status.chassis_power_limit;
+    float now_power = Power->power;
+    Power->buffer_energy += (power_limit - now_power) * 0.001f;
 
-        if (Power->buffer_energy > max_buffer_energy) {
-            Power->buffer_energy = max_buffer_energy;
-        }
-        else if (Power->buffer_energy < 0.0f) {
-            Power->buffer_energy = 0.0f;
-        }
+    if (Power->buffer_energy > max_buffer_energy) {
+        Power->buffer_energy = max_buffer_energy;
+    }
+    else if (Power->buffer_energy < 0.0f) {
+        Power->buffer_energy = 0.0f;
     }
 }

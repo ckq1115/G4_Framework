@@ -247,7 +247,7 @@ void IMU_Gyro_Zero_Calibration_Task(void)
         float gyro_var  = (gyro_sq_sum[i] * div) - (mean_g * mean_g);
         float accel_var = (accel_sq_sum[i] * div) - (mean_a * mean_a);
         // 判定阈值，如果超过阈值，认为数据不稳定，需重新采集
-        if (gyro_var > 0.002f || accel_var > 0.0015f)
+        if (gyro_var > 0.01f || accel_var > 0.005f)
         {
             is_stable = 0;
             break;

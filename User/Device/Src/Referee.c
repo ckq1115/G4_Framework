@@ -24,7 +24,6 @@ void Referee_System_Frame_Update(uint8_t *Buff)
                         + FrameHeader_Length
                         + CMDID_Length
                         + CRC16_Length;
-
             /* CRC16 校验整帧 */
             if (Verify_CRC16_Check_Sum(&Buff[index], data_length) == true)
             {
@@ -44,7 +43,6 @@ void Referee_System_Frame_Update(uint8_t *Buff)
         {
             break;
         }
-
         index += data_length;
     }
 }
@@ -131,11 +129,6 @@ static void Referee_System_Info_Update(uint16_t cmd_id, uint8_t *data_ptr, User_
 
         case Minimap:
             memcpy(&usr_data->map_command, data_ptr, sizeof(map_command_t));
-            break;
-
-        case Robot_Interaction:
-            // 如果后面要用 UI/通信，可以打开
-            // memcpy(&usr_data->interaction, data_ptr, sizeof(robot_interaction_data_t));
             break;
 
         default:

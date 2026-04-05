@@ -14,22 +14,7 @@
 typedef struct
 {
     float Kp;
-    float Ki;
-    float Kd;
-    float ILt;
-    float AlLt;
-    float Error[2];
-    float P_out;
-    float I_out;
-    float D_out;
-    float All_out;
-
-}PID_buffer_t;
-
-typedef struct
-{
-    PID_buffer_t PID_Buffer;
-    float scaled_give_power[4];///按比例分配后可供电机使用的电功率
+    float Remaining_Buffer;
     float k1;//kt：M3508鼙鼓的转矩常数Nm/A,对应机械功率项，与转速和电流乘积成正比
     float k2;//kr：M3508鼙鼓和C620电调的电阻Ω，对应铜损项，与电流平方成正比
     float k3;//k_iron：M3508电机铁损系数 (W/(rad/s)²)，对应铁损项（磁滞/涡流损耗），与转速平方成正比
