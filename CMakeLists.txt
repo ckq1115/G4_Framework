@@ -16,7 +16,11 @@ file(GLOB_RECURSE USER_SOURCES
         "User/*.c" "User/*.cpp" "User/*.s"
 )
 
-add_executable(${CMAKE_PROJECT_NAME} ${USER_SOURCES})
+add_executable(${CMAKE_PROJECT_NAME} ${USER_SOURCES}
+        User/UI/RM_UI_Adapter.h
+        User/UI/RM_UI_Adapter.c
+        User/UI/RMUI.h
+        User/UI/RMUI.c)
 
 # 自动递归包含头文件
 file(GLOB_RECURSE ALL_H_FILES CONFIGURE_DEPENDS "User/*.h" "User/*.hpp" "Core/*.h")

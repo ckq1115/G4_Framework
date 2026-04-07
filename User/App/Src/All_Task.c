@@ -100,8 +100,20 @@ void Test_Task(void *argument)
 {
     (void)argument;
     Test_Init();
+    ui_config_t ui_cfg = {
+        .max_cap = 100.0f,
+        .max_wr = 60.0f,
+        .max_bullet = 30.0f,
+        .max_shoot = 10.0f
+    };
+    UI_Init(&h_ui, &ui_cfg);
     for(;;)
     {
+        h_ui.yaw = IMU_Data.yaw;
+        h_ui.pitch = IMU_Data.pitch;
+        h_ui.cap = IMU_Data.roll;
+        UI_OnLoop(&h_ui);
+        UI_SendUartCmd(&h_ui);
         Ctrl_Test_Task();
         osDelay(1);
     }
@@ -109,27 +121,25 @@ void Test_Task(void *argument)
 
 
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size){
+    uint8_t *pData = huart->pRxBuffPtr;
     if (huart->Instance == USART3){
         if (Size == 18){
             DBUS_Resolved(DBUS_RX_DATA, &C_DBUS, &C_DBUS_UNION);
         }
     }
     if (huart->Instance == USART1){
-        Referee_System_Frame_Update(Referee_Rx_Buf[0]);
-        HAL_UARTEx_ReceiveToIdle_DMA(huart,Referee_Rx_Buf[0],REFEREE_RXFRAME_LENGTH);
+        uint8_t *next_buf = (pData == Referee_Rx_Buf[0]) ? Referee_Rx_Buf[1] : Referee_Rx_Buf[0];
+        HAL_UARTEx_ReceiveToIdle_DMA(huart, next_buf, REFEREE_RXFRAME_LENGTH);
+        Referee_System_Frame_Update(pData,Size);
     }
     if (huart->Instance == USART2) {
         if (Size >= sizeof(SpeedData_t))
         {
-            // 2. 查找帧头并拷贝数据
             for (int i = 0; i <= Size - sizeof(SpeedData_t); i++)
             {
                 if (rx_buffer[i] == 0xAA && rx_buffer[i+1] == 0xBB)
                 {
-                    // 使用指针强转直接解包
                     SpeedData_t *pPkg = (SpeedData_t *)&rx_buffer[i];
-
-                    // 得到最终数据
                     current_data.speed_i2 = pPkg->speed_i2;
                     current_data.speed_i3 = pPkg->speed_i3;
 

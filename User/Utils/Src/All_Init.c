@@ -21,6 +21,8 @@ uint8_t Referee_Rx_Buf[2][REFEREE_RXFRAME_LENGTH];
 uint8_t rx_buffer[64];
 SpeedData_t current_data;
 
+UI_t h_ui;
+
 uint32_t stm32_id[3];
 void Get_UID(uint32_t *uid) {
     uid[0] = HAL_GetUIDw0();

@@ -30,6 +30,7 @@
 #include "W25N01GV.h"
 #include "Power_Ctrl.h"
 #include "Test_Task.h"
+#include "RMUI.h"
 
 extern uint8_t DBUS_RX_DATA[18];
 extern DBUS_Typedef C_DBUS;
@@ -39,6 +40,8 @@ extern MOTOR_Typdef All_Motor;
 
 extern CONTAL_Typedef contal;
 extern CAP_RXDATA CAP_Get;
+
+extern UI_t h_ui;
 
 extern ROOT_STATUS_Typedef ROOT_Status;
 void All_Init(void);

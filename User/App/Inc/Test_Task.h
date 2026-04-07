@@ -19,6 +19,7 @@ typedef struct {
 extern uint8_t rx_buffer[64];
 extern SpeedData_t current_data;
 
+//这下面是射击检测的
 #define K_UP       0.672f   // 上升系数
 #define K_DN       0.141f   // 下降系数
 #define TH_FIRE    200.0f   // 触发阈值

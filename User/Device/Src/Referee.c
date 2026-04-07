@@ -1,49 +1,53 @@
 #include "Referee.h"
 #include <stdbool.h>
 
-uint8_t Referee_System_Info_MultiRx_Buf[2][REFEREE_RXFRAME_LENGTH];
-
 static void Referee_System_Info_Update(uint16_t cmd_id, uint8_t *data_ptr, User_Data_T *usr_data);
 
 /**
-  * @brief  裁判系统数据解析（支持黏包）
+  * @brief  裁判系统数据解析
   */
-void Referee_System_Frame_Update(uint8_t *Buff)
+void Referee_System_Frame_Update(uint8_t *Buff, uint16_t Size)
 {
-    uint16_t index = 0;
+    uint16_t i = 0;
     uint16_t data_length = 0;
     uint16_t cmd_id = 0;
     uint8_t *data_ptr;
-
-    while (Buff[index] == 0xA5)
+    // 遍历整个接收到的缓冲区，寻找帧头 0xA5
+    for (i = 0; i < Size - FrameHeader_Length; )
     {
-        /* CRC8 校验帧头 */
-        if (Verify_CRC8_Check_Sum(&Buff[index], FrameHeader_Length) == true)
+        if (Buff[i] == 0xA5)
         {
-            data_length = (uint16_t)(Buff[index+2]<<8 | Buff[index+1])
-                        + FrameHeader_Length
-                        + CMDID_Length
-                        + CRC16_Length;
-            /* CRC16 校验整帧 */
-            if (Verify_CRC16_Check_Sum(&Buff[index], data_length) == true)
+            // CRC8 校验帧头
+            if (Verify_CRC8_Check_Sum(&Buff[i], FrameHeader_Length) == true)
             {
-                cmd_id = (uint16_t)(Buff[index + FrameHeader_Length + 1] << 8
-                                  | Buff[index + FrameHeader_Length]);
+                // 获取该帧的总长度
+                data_length = (uint16_t)(Buff[i+2] << 8 | Buff[i+1])
+                            + FrameHeader_Length
+                            + CMDID_Length
+                            + CRC16_Length;
+                // 防护：检查解析出的长度是否合法，防止内存越界
+                if (i + data_length <= Size)
+                {
+                    // CRC16 校验整帧
+                    if (Verify_CRC16_Check_Sum(&Buff[i], data_length) == true)
+                    {
+                        // 解析命令码
+                        cmd_id = (uint16_t)(Buff[i + FrameHeader_Length + 1] << 8
+                                          | Buff[i + FrameHeader_Length]);
 
-                data_ptr = &Buff[index + FrameHeader_Length + CMDID_Length];
-
-                Referee_System_Info_Update(cmd_id, data_ptr, &User_data);
-            }
-            else
-            {
-                break;
+                        // 指向负载数据起始地址
+                        data_ptr = &Buff[i + FrameHeader_Length + CMDID_Length];
+                        // 更新数据结构体
+                        Referee_System_Info_Update(cmd_id, data_ptr, &User_data);
+                        // 校验成功，跳过当前整帧长度，继续寻找下一帧
+                        i += data_length;
+                        continue;
+                    }
+                }
             }
         }
-        else
-        {
-            break;
-        }
-        index += data_length;
+        // 如果不是 0xA5，或者校验失败，则只向后挪动 1 字节寻找下一个起始符
+        i++;
     }
 }
 

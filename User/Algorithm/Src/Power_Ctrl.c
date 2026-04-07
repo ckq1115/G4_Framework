@@ -217,6 +217,35 @@ void CAN_POWER_Rx(Power_Typedef* Power, uint8_t *rx_data)
     Power->power      = Power->bus_volt * Power->current;
 }
 //缓冲能量计算
+/*void Buffer_Calc(Power_Typedef* Power, User_Data_T *user_data)
+{
+    static uint8_t is_initialized = 0;
+    static uint8_t calc_counter = 0;
+
+    if (!is_initialized) {
+        Power->buffer_energy = 60.0f;
+        is_initialized = 1;
+    }
+
+    float power_limit = user_data->robot_status.chassis_power_limit;
+    float max_buffer_energy = 60.0f;
+    float now_power = Power->power;
+
+    calc_counter++;
+
+    if (calc_counter >= 10)
+    {
+        Power->buffer_energy += (power_limit - now_power) * 0.01f;
+        calc_counter = 0;
+    }
+
+    if (Power->buffer_energy > max_buffer_energy) {
+        Power->buffer_energy = max_buffer_energy;
+    }
+    else if (Power->buffer_energy < 0.0f) {
+        Power->buffer_energy = 0.0f;
+    }
+}*/
 void Buffer_Calc(Power_Typedef* Power, User_Data_T *user_data)
 {
     static uint8_t is_initialized = 0;
@@ -227,7 +256,7 @@ void Buffer_Calc(Power_Typedef* Power, User_Data_T *user_data)
     }
     float power_limit = 75.0f;
     float max_buffer_energy = 60.0f;
-    // power_limit = user_data->robot_status.chassis_power_limit;
+    power_limit = user_data->robot_status.chassis_power_limit;
     float now_power = Power->power;
     Power->buffer_energy += (power_limit - now_power) * 0.001f;
 

@@ -18,7 +18,6 @@ bool Update_Shoot_Det(float speed1, float speed2, ShootDet_t *det) {
         det->init = true;
         return false;
     }
-
     float slope = det->last_val - val;
     det->last_val = val;
 

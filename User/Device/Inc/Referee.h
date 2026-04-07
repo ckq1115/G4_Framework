@@ -7,7 +7,7 @@
 #include "CRC_DJI.h"
 
 /* 帧长度 */
-#define REFEREE_RXFRAME_LENGTH 136
+#define REFEREE_RXFRAME_LENGTH 256
 #define FrameHeader_Length 5U
 #define CMDID_Length 2U
 #define CRC16_Length 2U
@@ -370,6 +370,6 @@ typedef union
 extern uint8_t Referee_Rx_Buf[2][REFEREE_RXFRAME_LENGTH];
 extern User_Data_T User_data;
 
-void Referee_System_Frame_Update(uint8_t *Buff);
+void Referee_System_Frame_Update(uint8_t *Buff, uint16_t Size);
 
 #endif
