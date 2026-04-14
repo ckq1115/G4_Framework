@@ -122,7 +122,7 @@ CCM_FUNC void IMU_Update_Task(float dt_s)
         case TEMP_INIT:
             IMU_Temp_Control_Init();
             //IMU_QuaternionEKF_Init(10, 0.001f, 1000000, 0.9996f, 0.001f,0);
-            mahony_init(&mahony_filter, 5.0f, 0.01f, 0.001f);
+            mahony_init(&mahony_filter, 5.0f, 0.01f, 0.9f,dt_s);
 #ifdef DEBUG_MODE
             imu_ctrl_state = TEMP_PID_CTRL;
 #endif
@@ -247,7 +247,7 @@ void IMU_Gyro_Zero_Calibration_Task(void)
         float gyro_var  = (gyro_sq_sum[i] * div) - (mean_g * mean_g);
         float accel_var = (accel_sq_sum[i] * div) - (mean_a * mean_a);
         // 判定阈值，如果超过阈值，认为数据不稳定，需重新采集
-        if (gyro_var > 0.01f || accel_var > 0.005f)
+        if (gyro_var > 0.003f || accel_var > 0.002f)
         {
             is_stable = 0;
             break;

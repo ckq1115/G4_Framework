@@ -9,7 +9,7 @@
 
 CCM_FUNC void MY_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
         if (htim->Instance == TIM4) {
-            System_Root(&ROOT_Status, &C_DBUS, &All_Motor, NULL);
+            System_Root(&ROOT_Status, &DBUS, &All_Motor, NULL);
         }
     if (htim->Instance == TIM6) {
         Update_Shoot_Det(current_data.speed_i2, current_data.speed_i3, &g_det);
@@ -82,7 +82,6 @@ void Motor_Task(void *argument)
     for(;;)
     {
         //Chassis_Control_Task(&All_Motor);
-        //DM_Motor_Send(&hfdcan2,0x4FE,3,0,0,0);
         //W25N01GV_ReadID(flash_id);// ID 应该是 EF AA 21
         VOFA_justfloat(
             IMU_Data.pitch,
@@ -90,8 +89,9 @@ void Motor_Task(void *argument)
             IMU_Data.yaw,
             IMU_Data.YawTotalAngle,
             g_det.base,
-            g_det.integral,
-            0,g_det.armed*100,g_det.cnt,0);
+            current_data.speed_i2,
+            current_data.speed_i3,
+            0,g_det.armed*100,g_det.cnt);
         osDelay(1);
     }
 }
@@ -114,7 +114,7 @@ void Test_Task(void *argument)
         h_ui.cap = IMU_Data.roll;
         UI_OnLoop(&h_ui);
         UI_SendUartCmd(&h_ui);
-        Ctrl_Test_Task();
+        //Ctrl_Test_Task();
         osDelay(1);
     }
 }
@@ -124,7 +124,12 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size){
     uint8_t *pData = huart->pRxBuffPtr;
     if (huart->Instance == USART3){
         if (Size == 18){
-            DBUS_Resolved(DBUS_RX_DATA, &C_DBUS, &C_DBUS_UNION);
+            DBUS_Resolved(DBUS_RX_DATA, &DBUS, &DBUS_UNION);
+        }
+    }
+    if (huart->Instance == UART5){
+        if (Size == 21){
+            VT13_Resolved(VT13_RX_DATA, &VT13);
         }
     }
     if (huart->Instance == USART1){
@@ -135,14 +140,13 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size){
     if (huart->Instance == USART2) {
         if (Size >= sizeof(SpeedData_t))
         {
-            for (int i = 0; i <= Size - sizeof(SpeedData_t); i++)
+            for (uint32_t i = 0; i <= Size - sizeof(SpeedData_t); i++)
             {
                 if (rx_buffer[i] == 0xAA && rx_buffer[i+1] == 0xBB)
                 {
                     SpeedData_t *pPkg = (SpeedData_t *)&rx_buffer[i];
                     current_data.speed_i2 = pPkg->speed_i2;
                     current_data.speed_i3 = pPkg->speed_i3;
-
                     break;
                 }
             }

@@ -35,11 +35,13 @@ int64_t MATH_ABS_int64_t(int64_t DATA)
  *	@parameter:		    // DATA：需要计算绝对值的 float 类型数据
  *	@ReadMe:			//
  ************************************************************************************************************************************/
-float MATH_ABS_float(float DATA)
-{
-    uint32_t RUI_V_TEMP = *(uint32_t*) &DATA;
-    RUI_V_TEMP &= 0x7FFFFFFF; // 将符号位清零
-    return *(float*) &RUI_V_TEMP;
+float MATH_ABS_float(float DATA) {
+    uint32_t temp;
+    memcpy(&temp, &DATA, 4);
+    temp &= 0x7FFFFFFF;
+    float result;
+    memcpy(&result, &temp, 4);
+    return result;
 }
 
 /************************************************************ 万能分隔符 **************************************************************
@@ -85,29 +87,17 @@ void MATH_SETBIT(unsigned char* byte , int position , int value)
  *	@parameter:		    // DATA：需要计算平方根倒数的 float 类型数据
  *	@ReadMe:			//
  ************************************************************************************************************************************/
-float MATH_INV_SQRT_float(float DATA)
-{
-    float DATA_half = 0.5f * DATA;
-    uint32_t i = *(uint32_t*) &DATA; // 将浮点数视为无符号整数
-    i = 0x5f3759df - (i >> 1); // 运用魔数进行处理
-    DATA = *(float*) &i; // 再将无符号整数转回浮点数
-    DATA = DATA * (1.5f - DATA_half * DATA * DATA); // 进行牛顿迭代
-    return DATA;
+float MATH_INV_SQRT_float(float x) {
+    uint32_t i;
+    memcpy(&i, &x, 4);      // 将 float 位拷贝给 uint32_t
+    i = 0x5f3759df - (i >> 1);
+    memcpy(&x, &i, 4);      // 再拷贝回来
+    return x * (1.5f - 0.5f * x * x * x);
 }
-
-//float uint_to_float(int16_t x_int, float span, int16_t value)
-//{
-//	return x_int-value/2/value*span;
-//}
 
 float Hex_To_Float(uint32_t *Byte,int num)// 十六进制到浮点数
 {
   return *((float*)Byte);
-}
-
-uint32_t FloatTohex(float HEX)// 浮点数到十六进制转换
-{
-  return *( uint32_t *)&HEX;
 }
 
 /**

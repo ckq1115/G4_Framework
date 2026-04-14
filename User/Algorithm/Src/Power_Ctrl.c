@@ -62,16 +62,12 @@ void chassis_power_distribute(DJI_MOTOR_Typedef *motor[4],
         B += model->k1 * w * I;
         C += model->k3 * w * w;
     }
-
     float P_predict = A + B + C + P_limit;
-
     if(P_predict <= P_limit)
     {
         return; // 不超功率，不做任何处理
     }
-
     float s = 1.0f;
-
     if(A < 1e-6f)
     {
         s = 0.0f;
@@ -89,10 +85,8 @@ void chassis_power_distribute(DJI_MOTOR_Typedef *motor[4],
             s = 0.0f;
         }
     }
-
     if(s > 1.0f) s = 1.0f;
     if(s < 0.0f) s = 0.0f;
-
     for(int i = 0; i < 4; i++)
     {
         I_cmd[i] *= s;
@@ -208,7 +202,7 @@ void CAN_POWER_Rx(Power_Typedef* Power, uint8_t *rx_data)
     int16_t raw_shunt = (int16_t)((int16_t)rx_data[0] << 8 | rx_data[1]);
     int16_t raw_bus   = (int16_t)((int16_t)rx_data[2] << 8 | rx_data[3]);
     int16_t raw_curr  = (int16_t)((int16_t)rx_data[4] << 8 | rx_data[5]);
-    int16_t raw_pwr   = (int16_t)((int16_t)rx_data[6] << 8 | rx_data[7]);
+    //int16_t raw_pwr   = (int16_t)((int16_t)rx_data[6] << 8 | rx_data[7]);
 
     Power->shunt_volt = (float)raw_shunt / 1000.0f;
     Power->bus_volt   = (float)raw_bus   / 1000.0f;

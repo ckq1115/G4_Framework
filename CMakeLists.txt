@@ -52,7 +52,7 @@ target_compile_options(${CMAKE_PROJECT_NAME} PUBLIC
         -Werror=implicit-function-declaration -Werror=incompatible-pointer-types
         -fdata-sections -ffunction-sections
         $<$<CONFIG:Debug>:-Og -g3 -fno-omit-frame-pointer -fno-lto>
-        $<$<CONFIG:Release>:-O3 -ffast-math -funroll-loops -flto=auto>
+        $<$<CONFIG:Release>:-O3 -ffast-math -funroll-loops>
 )
 
 # 链接配置

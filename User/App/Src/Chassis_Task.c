@@ -59,9 +59,9 @@ void Chassis_Control_Task(MOTOR_Typdef *MOTOR) {
     // 正解算：使用反馈值更新底盘当前状态
     Steer_Forward_Calc(&S_Now, MOTOR, IMU_Data.gyro[2], &S_Cfg);
 
-    float vx_tar = C_DBUS.Remote.CH0_int16 * 0.004f;
-    float vy_tar = C_DBUS.Remote.CH1_int16 * 0.004f;
-    float vw_tar = -C_DBUS.Remote.CH2_int16 * 0.01f;
+    float vx_tar = DBUS.Remote.CH0_int16 * 0.004f;
+    float vy_tar = DBUS.Remote.CH1_int16 * 0.004f;
+    float vw_tar = -DBUS.Remote.CH2_int16 * 0.01f;
 
     // 3. 外环 PID 计算 -> 产生加速度需求 (ax, ay, aw)
     PID_Calculate(&PID_Vx, S_Now.vx, vx_tar);
@@ -96,7 +96,7 @@ void Chassis_Control_Task(MOTOR_Typdef *MOTOR) {
     }
 
     // 5. 电机控制量发送
-    if (C_DBUS.DBUS_ONLINE_JUDGE_TIME >= 5) {
+    if (DBUS.DBUS_ONLINE_JUDGE_TIME >= 5) {
         // 发送驱动电机 (3508) 电流
         DJI_Motor_Send(&hfdcan1, 0x200,
                        MOTOR->DJI_3508_Chassis[0].PID_S.Output,

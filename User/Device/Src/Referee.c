@@ -12,6 +12,7 @@ void Referee_System_Frame_Update(uint8_t *Buff, uint16_t Size)
     uint16_t data_length = 0;
     uint16_t cmd_id = 0;
     uint8_t *data_ptr;
+    if (Buff == NULL || Size <= FrameHeader_Length) return;
     // 遍历整个接收到的缓冲区，寻找帧头 0xA5
     for (i = 0; i < Size - FrameHeader_Length; )
     {

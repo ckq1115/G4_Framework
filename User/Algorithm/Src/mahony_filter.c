@@ -60,82 +60,97 @@ CCM_FUNC void RotationMatrix_update(struct MAHONY_FILTER_t *f)
 }
 
 /**
- * @brief Mahony滤波算法核心更新函数
- * @param f 指向MAHONY_FILTER_t结构体的指针，存储算法状态和参数
- * @param gx 陀螺仪X轴角速度（rad/s）
- * @param gy 陀螺仪Y轴角速度（rad/s）
- * @param gz 陀螺仪Z轴角速度（rad/s）
- * @param ax 加速度计X轴加速度（m/s²）
- * @param ay 加速度计Y轴加速度（m/s²）
- * @param az 加速度计Z轴加速度（m/s²）
- * @return void
+ * @brief Mahony滤波算法核心更新函数 (带加速度计低通滤波版)
+ * @param f 指向MAHONY_FILTER_t结构体的指针
+ * @param gx, gy, gz 陀螺仪原始数据 (rad/s)
+ * @param ax, ay, az 加速度计原始数据 (m/s²)
+ * @param dt 采样周期 (s)
  */
 CCM_FUNC void mahony_update(struct MAHONY_FILTER_t *f,
                    float gx, float gy, float gz,
-                   float ax, float ay, float az,float dt)
+                   float ax, float ay, float az, float dt)
 {
     f->dt = dt;
     float halfT = 0.5f * f->dt;
 
-    float32_t sum_sq;
-    sum_sq = ax*ax + ay*ay + az*az;
-    arm_sqrt_f32(sum_sq, &f->acc_norm);
+    // 加速度计一阶低通滤波
+    f->acc_lpf.x = (1.0f - f->alpha) * f->acc_lpf.x + f->alpha * ax;
+    f->acc_lpf.y = (1.0f - f->alpha) * f->acc_lpf.y + f->alpha * ay;
+    f->acc_lpf.z = (1.0f - f->alpha) * f->acc_lpf.z + f->alpha * az;
 
-    sum_sq = gx*gx + gy*gy + gz*gz; // 注意这里gx等已经是rad/s
+    // 计算滤波后的加速度模长
+    float32_t acc_sum_sq = f->acc_lpf.x * f->acc_lpf.x +
+                           f->acc_lpf.y * f->acc_lpf.y +
+                           f->acc_lpf.z * f->acc_lpf.z;
+    arm_sqrt_f32(acc_sum_sq, &f->acc_norm);
+
+    // 计算陀螺仪模长
+    float32_t gyro_sum_sq = gx * gx + gy * gy + gz * gz;
     float32_t gyro_norm;
-    arm_sqrt_f32(sum_sq, &gyro_norm);
-    // 静态判定：加速度接近重力，陀螺仪接近静止，两个数都不建议大于0.1
-    int is_static = (fabsf(f->acc_norm - 9.81f) < 0.09f) && (gyro_norm < 0.015f);
+    arm_sqrt_f32(gyro_sum_sq, &gyro_norm);
 
+    // 静态零偏学习逻辑
+    int is_static = (fabsf(f->acc_norm - 9.81f) < 0.1f) && (gyro_norm < 0.015f);
     if (is_static)
     {
-        const float learn_rate = 0.006f;   // 零偏学习率：调大收敛更快，调小更稳定
+        const float learn_rate = 0.006f;
         f->gyro_bias.x = (1 - learn_rate) * f->gyro_bias.x + learn_rate * gx;
         f->gyro_bias.y = (1 - learn_rate) * f->gyro_bias.y + learn_rate * gy;
         f->gyro_bias.z = (1 - learn_rate) * f->gyro_bias.z + learn_rate * gz;
     }
+
     // 去除陀螺仪零偏
     gx -= f->gyro_bias.x;
     gy -= f->gyro_bias.y;
     gz -= f->gyro_bias.z;
 
-    // 加速度计有效性判定：模长偏离重力超过1.5m/s²或陀螺仪模长超过1.0rad/s时，认为动态过大，不校正
+    // 加速度计有效性判定
     int high_dynamic = (fabsf(f->acc_norm - 9.81f) > 1.5f) || (gyro_norm > 1.0f);
 
-    float ex = 0, ey = 0;
-
-    if (!high_dynamic)
+    if (!high_dynamic && acc_sum_sq > 0.000001f)
     {
-        // 加速度计数据归一化，转为单位向量
-        float32_t norm = arm_invSqrt(ax*ax + ay*ay + az*az);
-        ax *= norm; ay *= norm; az *= norm;
+        // 归一化滤波后的加速度计数据
+        float32_t norm = arm_invSqrt(acc_sum_sq);
+        float ax_n = f->acc_lpf.x * norm;
+        float ay_n = f->acc_lpf.y * norm;
+        float az_n = f->acc_lpf.z * norm;
 
-        // 叉乘计算重力向量在机体系的投影误差
-        ex = ay * f->rMat[2][2] - az * f->rMat[2][1];
-        ey = az * f->rMat[2][0] - ax * f->rMat[2][2];
+        // 叉乘计算误差向量 (重力在机体系投影 f->rMat[2] 与 加速度计测量向量 的误差)
+        // ex = ay_meas * rMat[2][2] - az_meas * rMat[2][1]
+        // ey = az_meas * rMat[2][0] - ax_meas * rMat[2][2]
+        float ex = ay_n * f->rMat[2][2] - az_n * f->rMat[2][1];
+        float ey = az_n * f->rMat[2][0] - ax_n * f->rMat[2][2];
 
-        // 积分项限幅，防止积分饱和导致姿态发散
+        // 积分项累加
         if (gyro_norm < 0.5f)
         {
             f->exInt += f->Ki * ex * dt;
             f->eyInt += f->Ki * ey * dt;
-
-            gx += f->Kp * ex + f->exInt;
-            gy += f->Kp * ey + f->eyInt;
         }
+        else
+        {
+            // 动态较大时可以选择让积分缓慢衰减，或者保持不变
+            f->exInt *= 0.99f;
+            f->eyInt *= 0.99f;
+        }
+
+        // 注入补偿项到角速度
+        gx += f->Kp * ex + f->exInt;
+        gy += f->Kp * ey + f->eyInt;
     }
 
-    // 四元数积分更新
+    // 四元数积分更新 (Runge-Kutta 1阶)
     float q0 = f->q0, q1 = f->q1, q2 = f->q2, q3 = f->q3;
+    f->q0 += (-q1 * gx - q2 * gy - q3 * gz) * halfT;
+    f->q1 += ( q0 * gx + q2 * gz - q3 * gy) * halfT;
+    f->q2 += ( q0 * gy - q1 * gz + q3 * gx) * halfT;
+    f->q3 += ( q0 * gz + q1 * gy - q2 * gx) * halfT;
 
-    f->q0 += (-q1*gx - q2*gy - q3*gz) * halfT;
-    f->q1 += ( q0*gx + q2*gz - q3*gy) * halfT;
-    f->q2 += ( q0*gy - q1*gz + q3*gx) * halfT;
-    f->q3 += ( q0*gz + q1*gy - q2*gx) * halfT;
+    // 四元数归一化
+    float q_norm = arm_invSqrt(f->q0 * f->q0 + f->q1 * f->q1 + f->q2 * f->q2 + f->q3 * f->q3);
+    f->q0 *= q_norm; f->q1 *= q_norm; f->q2 *= q_norm; f->q3 *= q_norm;
 
-    float norm = arm_invSqrt(f->q0*f->q0 + f->q1*f->q1 + f->q2*f->q2 + f->q3*f->q3);
-    f->q0 *= norm; f->q1 *= norm; f->q2 *= norm; f->q3 *= norm;
-
+    // 更新旋转矩阵供下一周期计算及输出使用
     RotationMatrix_update(f);
 }
 
@@ -187,13 +202,16 @@ void mahony_output(struct MAHONY_FILTER_t *f) {
  * @param dt 算法更新周期（单位：秒）
  * @return void
  */
-void mahony_init(struct MAHONY_FILTER_t *f, float Kp, float Ki, float dt)
+void mahony_init(struct MAHONY_FILTER_t *f, float Kp, float Ki, float alpha,float dt)
 {
     f->Kp = Kp;
     f->Ki = Ki;
+    f->alpha = alpha;
     f->dt = dt;
 
     f->q0 = 1; f->q1 = 0; f->q2 = 0; f->q3 = 0;
+
+    f->acc_lpf.x = 0; f->acc_lpf.y = 0; f->acc_lpf.z = 0;
 
     f->gyro_bias.x = 0;
     f->gyro_bias.y = 0;

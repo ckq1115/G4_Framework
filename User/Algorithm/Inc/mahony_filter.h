@@ -35,6 +35,8 @@ struct MAHONY_FILTER_t
 {
     // 输入参数
     float Kp, Ki;          // 比例/积分增益
+    float alpha;           // 加速度计低通滤波系数
+    Axis3f acc_lpf;        // 存储滤波后的加速度值
     float dt;              // 采样间隔
     Axis3f  gyro, acc;     // 陀螺仪/加速度计数据
     Axis3f gyro_bias;      // 陀螺仪零偏
@@ -57,7 +59,7 @@ struct MAHONY_FILTER_t
 
 extern struct MAHONY_FILTER_t mahony_filter;
 
-void mahony_init(struct MAHONY_FILTER_t *mahony_filter, float Kp, float Ki, float dt);
+void mahony_init(struct MAHONY_FILTER_t *f, float Kp, float Ki, float alpha,float dt);
 void mahony_input(struct MAHONY_FILTER_t *mahony_filter, Axis3f gyro, Axis3f acc);
 void mahony_update(struct MAHONY_FILTER_t *mahony_filter,
                    float gx, float gy, float gz,

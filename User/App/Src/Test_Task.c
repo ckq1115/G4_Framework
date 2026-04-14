@@ -8,49 +8,54 @@
 
 ShootDet_t g_det = {0};
 
+//500Hz调用,传入两个摩擦轮的转速
 bool Update_Shoot_Det(float speed1, float speed2, ShootDet_t *det) {
     float val = (fabsf(speed1) + fabsf(speed2)) / 2.0f;
-
     if (!det->init) {
         det->base = val;
         det->last_val = val;
-        det->integral = 0;
+        det->max_drop_in_round = 0;
+        det->cool_down_cnt = 0;
         det->init = true;
         return false;
     }
     float slope = det->last_val - val;
     det->last_val = val;
-
     if (val > det->base) {
         det->base = (K_UP * val) + (1.0f - K_UP) * det->base;
     } else {
         det->base = (K_DN * val) + (1.0f - K_DN) * det->base;
     }
-
     float drop = det->base - val;
     bool shoot_done = false;
-
-    if (drop > 0) {
-        det->integral += drop;
-    } else {
-        det->integral *= 0.5f;
+    if (det->cool_down_cnt > 0) {
+        det->cool_down_cnt--;
+        det->armed = false;
+        return false;
     }
-
     if (!det->armed) {
-        if (drop > TH_FIRE && slope > MIN_SLOPE && det->integral > TH_INT_FIRE) {
+        if (drop > TH_FIRE && drop < TH_FIRE_MAX && slope > MIN_SLOPE && val > 4500) {
             det->armed = true;
+            det->max_drop_in_round = drop;
             det->t_out = 0;
         }
     } else {
         det->t_out++;
-        if (drop < TH_RST) {
+        if (drop > det->max_drop_in_round) {
+            det->max_drop_in_round = drop;
+        }
+        bool condition_relative = (drop < det->max_drop_in_round * (1.0f - RELATIVE_RECOVER));
+        bool condition_absolute = (drop < TH_RST_SAFE);
+        if (condition_relative || condition_absolute) {
             det->armed = false;
             det->cnt++;
-            det->integral = 0;
+            det->cool_down_cnt = COOL_DOWN_TICKS;
+            det->max_drop_in_round = 0;
             shoot_done = true;
-        } else if (det->t_out >= TIMEOUT_TICKS || drop >= MAX_DROP) {
+        }
+        else if (det->t_out >= TIMEOUT_TICKS) {
             det->armed = false;
-            det->integral = 0;
+            det->max_drop_in_round = 0;
         }
     }
     return shoot_done;
@@ -94,11 +99,11 @@ void Test_Init(void) {
 
 void Ctrl_Test_Task(void) {
 
-    All_Motor.DJI_6020_Yaw.PID_P.Ref -= C_DBUS.Remote.CH2_int16 * 0.0001f;
+    All_Motor.DJI_6020_Yaw.PID_P.Ref -= DBUS.Remote.CH2_int16 * 0.0001f;
     if (All_Motor.DJI_6020_Yaw.PID_P.Ref > 90.0f) All_Motor.DJI_6020_Yaw.PID_P.Ref = 90.0f;
     else if (All_Motor.DJI_6020_Yaw.PID_P.Ref < -90.0f) All_Motor.DJI_6020_Yaw.PID_P.Ref = -90.0f;
 
-    All_Motor.DJI_6020_Pitch.PID_P.Ref += C_DBUS.Remote.CH3_int16 * 0.0001f;
+    All_Motor.DJI_6020_Pitch.PID_P.Ref += DBUS.Remote.CH3_int16 * 0.0001f;
     if (All_Motor.DJI_6020_Pitch.PID_P.Ref > 45.0f) All_Motor.DJI_6020_Pitch.PID_P.Ref = 45.0f;
     else if (All_Motor.DJI_6020_Pitch.PID_P.Ref < -45.0f) All_Motor.DJI_6020_Pitch.PID_P.Ref = -45.0f;
 
