@@ -2,8 +2,9 @@
 // Created by CaoKangqi on 2026/2/23.
 //
 #include "Chassis_Calc.h"
-
+#include <math.h>
 #include "All_define.h"
+#include "CKQ_MATH.h"
 
 static float ClampFloat(float val, float min_val, float max_val)
 {
@@ -15,6 +16,13 @@ static float ClampFloat(float val, float min_val, float max_val)
 static float AbsFloat(float val)
 {
     return (val < 0.0f) ? -val : val;
+}
+
+static float WrapToPi(float angle)
+{
+    while (angle > PI) angle -= 2.0f * PI;
+    while (angle < -PI) angle += 2.0f * PI;
+    return angle;
 }
 
 uint8_t MecanumInit(mecanumInit_typdef *mecanumInitT)
@@ -120,5 +128,94 @@ void Omni_calc(float *wheel_rpm, float vx_temp, float vy_temp, float vr, OmniIni
         for (uint8_t i = 0; i < 4; i++) {
             wheel_rpm[i] *= rate;
         }
+    }
+}
+
+#define M3508_NM_TO_RAW ( (1.0f / (268/17 * 0.3f * 0.85f)) * (16384.0f / 20.0f) )
+
+uint8_t Steer_Init(Steer_Cfg_t *cfg) {
+    cfg->m = 22.5f;       // 整车质量 (kg)
+    cfg->J = 0.85f;       // 绕中心转动惯量 (kg·m²)
+    cfg->R = 0.247f;      // 旋转半径 (中心到轮心距离 m)
+    cfg->r = 0.06f;      // 轮半径 (m)
+    cfg->gear_d = 268/17;  // 驱动减速比
+
+    // 轮角排布 (RAD)
+    cfg->phi[0] = 0.25f * PI;  cfg->phi[1] = 0.75f * PI;
+    cfg->phi[2] = 1.25f * PI;  cfg->phi[3] = 1.75f * PI;
+    return 0;
+}
+
+void Steer_Forward_Calc(Steer_State_t *now, MOTOR_Typdef *motor, float gyro_vw, Steer_Cfg_t *cfg) {
+    float b_x = 0, b_y = 0;
+
+    for (int i = 0; i < 4; i++) {
+        float v_w_mag = (motor->DJI_3508_Chassis[i].DATA.Speed_now * RPM_TO_RADS / cfg->gear_d) * cfg->r;
+
+        float theta = motor->DJI_6020_Steer[i].DATA.Angle_now * ENCODER_TO_RAD;
+
+        float vix = v_w_mag * cosf(theta);
+        float viy = v_w_mag * sinf(theta);
+
+        b_x += (vix + gyro_vw * cfg->R * sinf(cfg->phi[i]));
+        b_y += (viy - gyro_vw * cfg->R * cosf(cfg->phi[i]));
+    }
+
+    now->vx = b_x / 4.0f;
+    now->vy = b_y / 4.0f;
+    now->vw = gyro_vw;
+}
+
+void Steer_Inverse_Calc(float *ff_out, MOTOR_Typdef *motor,
+                        float ax, float ay, float aw,
+                        float vx, float vy, float vw, Steer_Cfg_t *cfg)
+{
+    for (int i = 0; i < 4; i++) {
+        // 运动学解算：计算轮中心的目标线速度向量
+        float vix = vx - cfg->R * vw * sinf(cfg->phi[i]);
+        float viy = vy + cfg->R * vw * cosf(cfg->phi[i]);
+        float v_mag = sqrtf(vix * vix + viy * viy);
+
+        // 获取当前电机角度反馈（弧度）
+        float current_theta = motor->DJI_6020_Steer[i].DATA.Angle_now * ENCODER_TO_RAD;
+
+        // 舵向角目标计算
+        float target_theta;
+        // 如果线速度目标极小，则切换到加速度向量引导方向,这样可以解决起步时舵轮方向不明确导致的抖动问题
+        if (v_mag < 0.005f) {
+            float aix = ax - cfg->R * aw * sinf(cfg->phi[i]);
+            float aiy = ay + cfg->R * aw * cosf(cfg->phi[i]);
+            // 如果加速度也为0，保持当前角度；否则指向加速度方向
+            target_theta = (sqrtf(aix * aix + aiy * aiy) < 0.005f) ? current_theta : atan2f(aiy, aix);
+        } else {
+            target_theta = atan2f(viy, vix);
+        }
+
+        // 就近转向逻辑
+        float diff = target_theta - current_theta;
+        while (diff > PI)  diff -= 2.0f * PI;
+        while (diff < -PI) diff += 2.0f * PI;
+
+        float speed_dir = 1.0f;
+        if (fabsf(diff) > PI / 2.0f) {
+            target_theta = (diff > 0) ? target_theta - PI : target_theta + PI;
+            speed_dir = -1.0f;
+        }
+
+        motor->DJI_6020_Steer[i].DATA.Aim = target_theta;
+        motor->DJI_3508_Chassis[i].DATA.Aim = speed_dir * v_mag / cfg->r * cfg->gear_d / RPM_TO_RADS;
+
+        // 动力学前馈优化
+        // 基于拉格朗日乘数法求得的解析解：在保证底盘合力的前提下，使四个驱动轮的负载最均衡
+        // F_ix 和 F_iy 是地面坐标系下该轮应提供的最优力向量
+        float F_ix = (cfg->m * ax - (cfg->J * aw / cfg->R) * sinf(cfg->phi[i])) / 4.0f;
+        float F_iy = (cfg->m * ay + (cfg->J * aw / cfg->R) * cosf(cfg->phi[i])) / 4.0f;
+
+        // 将最优力向量投影到轮子“当前”实际的角度上
+        // 核心思路：即便舵机还没转到位，驱动电机也应该按照当前角度能贡献的分量来输出，从而实现平滑过渡
+        float F_drive = F_ix * cosf(current_theta) + F_iy * sinf(current_theta);
+
+        // 换算为电流原始控制值并存入输出数组
+        ff_out[i] = speed_dir * (F_drive * cfg->r) * M3508_NM_TO_RAW;
     }
 }

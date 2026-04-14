@@ -23,14 +23,12 @@ typedef struct {
     uint8_t B;
 } WS2812_Color_t;
 
-// 函数声明
 void WS2812_Init(void);
 void WS2812_SetPixel(uint16_t index, uint8_t r, uint8_t g, uint8_t b);
 void WS2812_SetAll(uint8_t r, uint8_t g, uint8_t b);
 void WS2812_Clear(void);
-void WS2812_Send(void); // 启动发送
+void WS2812_Send(void);
 
-// 特效函数
 void WS2812_UpdateBreathing(uint16_t index, float period);
 void WS2812_RainbowCycle(uint8_t speed);
 

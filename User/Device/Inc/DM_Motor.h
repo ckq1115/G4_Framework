@@ -80,38 +80,6 @@ typedef enum {
     DM_CMD_CLEAR_ERROR   = 0xfb,//清除错误状态
 } DMMotor_Mode_e;
 
-// 保持其他辅助结构体
-typedef struct {
-    uint16_t id;
-    uint16_t state;
-    int p_int, v_int, t_int, kp_int, kd_int;
-    float tor, Kp, Kd, Tmos, Tcoil, aim, cur;
-    int16_t pos[2], vel[2], round;
-    int32_t reality;
-    uint16_t initialAngle;
-    float ralativeAngle;
-} motor_fbpara_t;
-
-typedef struct {
-    float kp, ki, kd, epsilon;
-    int32_t iLt, alLt;
-    float error[2], p_out, i_out;
-    int32_t d_out;
-    float all_out;
-} PID_typedef;
-
-typedef struct {
-    float A, B, rin, lastRin, perrRin;
-} FFC_typedef;
-
-typedef struct {
-    uint16_t mode[2];
-    motor_fbpara_t para;
-    FFC_typedef FFC;
-    PID_typedef PID_P;
-    PID_typedef PID_S;
-} Joint_Motor_t;
-
 // 模式解析
 void DM_Standard_Resolve(DM_MOTOR_Typdef *motor, uint8_t *rx_data);
 void DM_1to4_Resolve(DM_MOTOR_Typdef *motor, uint8_t *rx_data);

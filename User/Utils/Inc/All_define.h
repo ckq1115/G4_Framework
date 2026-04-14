@@ -19,6 +19,9 @@
 /// 弧度转角度
 #define RAD2DEG (180.0f / PI)
 
+#define ENCODER_TO_RAD (2.0f * PI / 8192.0f)
+
+#define RPM_TO_RADS    (2.0f * PI / 60.0f)
 //设备离线
 #define DEVICE_OFFLINE 0
 //设备在线

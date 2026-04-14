@@ -9,8 +9,11 @@
 
 CCM_FUNC void MY_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
         if (htim->Instance == TIM4) {
-            System_Root(&ROOT_Status, &C_DBUS, &All_Motor, NULL);
+            System_Root(&ROOT_Status, &DBUS, &All_Motor, NULL);
         }
+    if (htim->Instance == TIM6) {
+        Update_Shoot_Det(current_data.speed_i2, current_data.speed_i3, &g_det);
+    }
 }
 static uint8_t icm_tx_buf[15];//包含寄存器地址和14字节数据，预先填充寄存器地址以优化DMA读取
 static uint8_t icm_rx_buf[15];//包含寄存器地址和14字节数据，预先填充寄存器地址以优化DMA读取
@@ -78,43 +81,76 @@ void Motor_Task(void *argument)
     //Motor_Mode(&hfdcan1,1,0x200,0xfc);
     for(;;)
     {
-        Chassis_Control_Task(&All_Motor);
-        //DM_Motor_Send(&hfdcan2,0x4FE,3,0,0,0);
+        //Chassis_Control_Task(&All_Motor);
         //W25N01GV_ReadID(flash_id);// ID 应该是 EF AA 21
         VOFA_justfloat(
             IMU_Data.pitch,
             IMU_Data.roll,
             IMU_Data.yaw,
             IMU_Data.YawTotalAngle,
-            User_data.power_heat_data.buffer_energy,
-            All_Motor.DJI_3508_Chassis[2].PID_S.Output,
-            All_Motor.DJI_3508_Chassis[2].DATA.Speed_now,
-            All_Power.P_Chassis.power,
-            All_Power.P_Chassis.buffer_energy,0);
+            g_det.base,
+            current_data.speed_i2,
+            current_data.speed_i3,
+            0,g_det.armed*100,g_det.cnt);
         osDelay(1);
     }
 }
 
 void Test_Task(void *argument)
 {
+    (void)argument;
     Test_Init();
+    ui_config_t ui_cfg = {
+        .max_cap = 100.0f,
+        .max_wr = 60.0f,
+        .max_bullet = 30.0f,
+        .max_shoot = 10.0f
+    };
+    UI_Init(&h_ui, &ui_cfg);
     for(;;)
     {
+        h_ui.yaw = IMU_Data.yaw;
+        h_ui.pitch = IMU_Data.pitch;
+        h_ui.cap = IMU_Data.roll;
+        UI_OnLoop(&h_ui);
+        UI_SendUartCmd(&h_ui);
         //Ctrl_Test_Task();
-        osDelay(5);
+        osDelay(1);
     }
 }
 
 
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size){
+    uint8_t *pData = huart->pRxBuffPtr;
     if (huart->Instance == USART3){
         if (Size == 18){
-            DBUS_Resolved(DBUS_RX_DATA, &C_DBUS, &C_DBUS_UNION);
+            DBUS_Resolved(DBUS_RX_DATA, &DBUS, &DBUS_UNION);
+        }
+    }
+    if (huart->Instance == UART5){
+        if (Size == 21){
+            VT13_Resolved(VT13_RX_DATA, &VT13);
         }
     }
     if (huart->Instance == USART1){
-        Referee_System_Frame_Update(Referee_Rx_Buf[0]);
-        HAL_UARTEx_ReceiveToIdle_DMA(huart,Referee_Rx_Buf[0],REFEREE_RXFRAME_LENGTH);
+        uint8_t *next_buf = (pData == Referee_Rx_Buf[0]) ? Referee_Rx_Buf[1] : Referee_Rx_Buf[0];
+        HAL_UARTEx_ReceiveToIdle_DMA(huart, next_buf, REFEREE_RXFRAME_LENGTH);
+        Referee_System_Frame_Update(pData,Size);
+    }
+    if (huart->Instance == USART2) {
+        if (Size >= sizeof(SpeedData_t))
+        {
+            for (uint32_t i = 0; i <= Size - sizeof(SpeedData_t); i++)
+            {
+                if (rx_buffer[i] == 0xAA && rx_buffer[i+1] == 0xBB)
+                {
+                    SpeedData_t *pPkg = (SpeedData_t *)&rx_buffer[i];
+                    current_data.speed_i2 = pPkg->speed_i2;
+                    current_data.speed_i3 = pPkg->speed_i3;
+                    break;
+                }
+            }
+        }
     }
 }
 
@@ -176,9 +212,15 @@ CCM_FUNC void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t Rx
                 case 0x204:
                     DJI_Motor_Resolve(&All_Motor.DJI_3508_Chassis[3], data);
                     break;
-                case 0x601:
+                case 0x602:
                     CAN_POWER_Rx(&All_Power.P_Chassis, data);
                     Buffer_Calc(&All_Power.P_Chassis, &User_data);
+                    break;
+                case 0x207:
+                    DJI_Motor_Resolve(&All_Motor.DJI_6020_Yaw, data);
+                    break;
+                case 0x206:
+                    DJI_Motor_Resolve(&All_Motor.DJI_6020_Pitch, data);
                     break;
                 default:
                     break;
@@ -204,7 +246,7 @@ CCM_FUNC void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t Rx
 
 /**
  * @brief FDCAN FIFO1 接收中断回调函数
- * @note 优化要点同FIFO0
+ * @note
  */
 CCM_FUNC void HAL_FDCAN_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo1ITs)
 {
@@ -233,14 +275,10 @@ CCM_FUNC void HAL_FDCAN_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t Rx
             break;
         }
         if (stats) stats->rx_count++;
-        // FDCAN2使用FIFO1
         if (hfdcan->Instance == FDCAN2)
         {
             switch (rx.Identifier)
             {
-                case 0x207:
-                    // GM6020_Decode(&All_Motor.GM6020_1, data);
-                    break;
                 case 0x305:
                     DM_1to4_Resolve(&All_Motor.DM4310_Pitch, data);
                     break;

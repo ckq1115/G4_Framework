@@ -40,7 +40,7 @@ void DBUS_Resolved(uint8_t* Data, DBUS_Typedef *DBUS,    DBUS_UNION_Typdef *DBUS
     static uint8_t Mouse_R_Lock = 0;
     static uint8_t Mouse_L_Lock = 0;
 
-    memcpy(DBUS_UNION->GetData , Data , 19);
+    memcpy(DBUS_UNION->GetData , Data , 18);
 
     DBUS->Remote.S1_u8 = DBUS_UNION->DataNeaten.S1;
     DBUS->Remote.S2_u8 = DBUS_UNION->DataNeaten.S2;

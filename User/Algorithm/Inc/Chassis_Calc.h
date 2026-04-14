@@ -6,6 +6,8 @@
 #define G4_FRAMEWORK_CHASSIS_CALC_H
 #include <stdint.h>
 
+#include "All_Motor.h"
+
 typedef struct
 {
     float wheel_perimeter;    /* 轮的周长（mm）*/
@@ -42,10 +44,49 @@ typedef struct
 
 extern OmniInit_typdef OmniInit_t;
 
+// 舵轮物理常量
+typedef struct {
+    float m;         // 底盘质量 (kg)
+    float J;         // 转动惯量 (kg*m^2)
+    float R;         // 旋转半径 (m)
+    float r;         // 轮子半径 (m)
+    float phi[4];    // 轮子安装方位角 (rad)
+    float gear_d;    // 驱动电机减速比 (M3508通常19:1)
+} Steer_Cfg_t;
+
+// 实时物理状态 (不干扰功率模型)
+typedef struct {
+    float vx;        // x轴速度 (m/s)
+    float vy;        // y轴速度 (m/s)
+    float vw;        // 角速度 (rad/s)
+} Steer_State_t;
+
+extern Steer_Cfg_t S_Cfg;
+extern Steer_State_t S_Now;
+
 uint8_t MecanumInit(mecanumInit_typdef *mecanumInitT);
 void MecanumResolve(float *wheel_rpm, float vx_temp, float vy_temp, float vr, mecanumInit_typdef *mecanumInit_t);
 
 uint8_t OmniInit(OmniInit_typdef *OmniInitT);
 void Omni_calc(float *wheel_rpm, float vx_temp, float vy_temp, float vr, OmniInit_typdef *OmniInit_t);
 
+uint8_t Steer_Init(Steer_Cfg_t *cfg);
+
+/**
+ * @brief 舵轮正解算 (Forward Kinematics)
+ * @param now 输出物理状态
+ * @param motor 输入电机结构体指针
+ * @param gyro_vw IMU角速度反馈
+ */
+void Steer_Forward_Calc(Steer_State_t *now, MOTOR_Typdef *motor, float gyro_vw, Steer_Cfg_t *cfg);
+
+/**
+ * @brief 舵轮力控逆解算 (Inverse Kinematics with Feedforward)
+ * @param motor 输出目标到电机结构体
+ * @param ax/ay/aw 输入目标加速度 (由外环PID产生)
+ * @param vx/vy/vw 输入目标速度
+ */
+void Steer_Inverse_Calc(float *ff_out, MOTOR_Typdef *motor,
+                        float ax, float ay, float aw,
+                        float vx, float vy, float vw, Steer_Cfg_t *cfg);
 #endif //G4_FRAMEWORK_CHASSIS_CALC_H
