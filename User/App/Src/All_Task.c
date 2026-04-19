@@ -78,10 +78,9 @@ void Motor_Task(void *argument)
     {
         Error_Handler();
     }
-    //Motor_Mode(&hfdcan1,1,0x200,0xfc);
     for(;;)
     {
-        //Chassis_Control_Task(&All_Motor);
+        Chassis_Control_Task(&All_Motor);
         //W25N01GV_ReadID(flash_id);// ID 应该是 EF AA 21
         VOFA_justfloat(
             IMU_Data.pitch,
@@ -91,7 +90,7 @@ void Motor_Task(void *argument)
             g_det.base,
             current_data.speed_i2,
             current_data.speed_i3,
-            0,g_det.armed*100,g_det.cnt);
+            All_Power.P_Chassis.buffer_energy,All_Power.P_Chassis.power,g_det.cnt);
         osDelay(1);
     }
 }
@@ -99,7 +98,7 @@ void Motor_Task(void *argument)
 void Test_Task(void *argument)
 {
     (void)argument;
-    Test_Init();
+    //Test_Init();
     ui_config_t ui_cfg = {
         .max_cap = 100.0f,
         .max_wr = 60.0f,
@@ -216,9 +215,6 @@ CCM_FUNC void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t Rx
                     CAN_POWER_Rx(&All_Power.P_Chassis, data);
                     Buffer_Calc(&All_Power.P_Chassis, &User_data);
                     break;
-                case 0x207:
-                    DJI_Motor_Resolve(&All_Motor.DJI_6020_Yaw, data);
-                    break;
                 case 0x206:
                     DJI_Motor_Resolve(&All_Motor.DJI_6020_Pitch, data);
                     break;
@@ -235,6 +231,18 @@ CCM_FUNC void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t Rx
                     break;
                 case 0x202:
                     DJI_Motor_Resolve(&All_Motor.DJI_2006_Yaw, data);
+                    break;
+                case 0x205:
+                    DJI_Motor_Resolve(&All_Motor.DJI_6020_Steer[0], data);
+                    break;
+                case 0x206:
+                    DJI_Motor_Resolve(&All_Motor.DJI_6020_Steer[1], data);
+                    break;
+                case 0x207:
+                    DJI_Motor_Resolve(&All_Motor.DJI_6020_Steer[2], data);
+                    break;
+                case 0x208:
+                    DJI_Motor_Resolve(&All_Motor.DJI_6020_Steer[3], data);
                     break;
                 default:
                     break;
@@ -281,6 +289,10 @@ CCM_FUNC void HAL_FDCAN_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t Rx
             {
                 case 0x305:
                     DM_1to4_Resolve(&All_Motor.DM4310_Pitch, data);
+                    break;
+                case 0x602:
+                    CAN_POWER_Rx(&All_Power.P_Chassis, data);
+                    Buffer_Calc(&All_Power.P_Chassis, &User_data);
                     break;
                 default:
                     break;

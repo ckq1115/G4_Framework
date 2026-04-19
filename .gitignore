@@ -4,6 +4,7 @@ G4_Framework.jdebug.user
 .settings/
 .idea/
 .vscode/
+.clangd/
 .ideagit rm -r --cached .
 mx.scratch
 

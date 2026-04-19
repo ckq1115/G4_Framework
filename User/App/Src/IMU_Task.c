@@ -81,7 +81,7 @@ void IMU_Temp_Control_Init(void)
         6.0f, 0.015f, 10.0f, // Kp, Ki, Kd Ratios
         3.5f, // eStep
         0.85f // ecStep
-);
+        );
 
     current_pid = base_pid;
 }
@@ -121,7 +121,6 @@ CCM_FUNC void IMU_Update_Task(float dt_s)
     {
         case TEMP_INIT:
             IMU_Temp_Control_Init();
-            //IMU_QuaternionEKF_Init(10, 0.001f, 1000000, 0.9996f, 0.001f,0);
             mahony_init(&mahony_filter, 5.0f, 0.01f, 0.9f,dt_s);
 #ifdef DEBUG_MODE
             imu_ctrl_state = TEMP_PID_CTRL;
@@ -177,7 +176,7 @@ CCM_FUNC void IMU_Update_Task(float dt_s)
             break;
 
         case FUSION_RUN:
-            WS2812_SetPixel(0, 0, 60, 0);    // 绿色：正常运行
+            WS2812_SetPixel(0, 0, 60, 40);    // 绿色：正常运行
             //HAL_TIM_PWM_Start(&htim20, TIM_CHANNEL_2);// 陀螺仪零漂收集结束后开启蜂鸣器
             const float AXIS_DIR[3] = {1.0f, -1.0f, -1.0f};// 根据安装方向调整轴向，确保输出符合右手坐标系
             for (int i = 0; i < 3; i++) {
@@ -199,13 +198,13 @@ CCM_FUNC void IMU_Update_Task(float dt_s)
             imu_ctrl_flag.fusion_enabled = 1;
             break;
         case ERROR_STATE:
+            WS2812_SetPixel(0, 255, 0, 0);// 红色表示错误
             if (ICM42688_Init() == 1) // 尝试重新初始化IMU，成功则认为错误已恢复
             {
                 imu_ctrl_state = TEMP_INIT; // 成功则回到初始状态
                 break;
             }
             Set_Heater_PWM(0); // 关闭加热片
-            WS2812_SetPixel(0, 255, 0, 0); // 红色表示错误
             break;
         default:
             break;
@@ -310,7 +309,7 @@ void IMU_Status_Check(void) {
     }
 
     // 数据卡死检测
-    // 将六轴数据求和，若连续 100 次采样完全一致，判定为传感器内部逻辑死锁（SPI/I2C 还在传，但数据不更新）
+    // 将六轴数据求和，若连续 100 次采样完全一致，判定为传感器内部逻辑死锁
     float sum = 0;
     for(int i=0; i<3; i++) {
         sum += IMU_Data.accel[i] + IMU_Data.gyro[i];

@@ -12,9 +12,8 @@ model_t chassis_model;
 
 // 加速度外环PID
 PID_t PID_Vx, PID_Vy, PID_Vw;
-Steer_Cfg_t S_Cfg;
-Steer_State_t S_Now;
-
+Swerve_Cfg_t S_Cfg;
+Swerve_State_t S_Now;
 /**
  * @brief 底盘控制初始化
  * @param MOTOR 电机总结构体指针
@@ -22,90 +21,88 @@ Steer_State_t S_Now;
  */
 uint8_t Chassis_Control_Init(MOTOR_Typdef *MOTOR)
 {
-    Steer_Init(&S_Cfg);
+    Swerve_Init(&S_Cfg);
 
     // 底盘速度外环,输出目标加速度
-    float PID_V_Param[3] = {0.0f, 0.0f, 0.0f};
+    float PID_V_Param[3] = {0.5f, 0.0f, 0.0f};
     PID_Init(&PID_Vx, 15.0f, 5.0f, PID_V_Param, 0, 0, 0, 0, 0, Integral_Limit | ErrorHandle);
     PID_Init(&PID_Vy, 15.0f, 5.0f, PID_V_Param, 0, 0, 0, 0, 0, Integral_Limit | ErrorHandle);
 
-    float PID_Vw_Param[3] = {0.0f, 0.0f, 0.0f};
+    float PID_Vw_Param[3] = {1.0f, 0.0f, 0.0f};
     PID_Init(&PID_Vw, 20.0f, 8.0f, PID_Vw_Param, 0, 0, 0, 0, 0, Integral_Limit | ErrorHandle);
 
-    float PID_6020_Pos[3] = {0.0f, 0.0f, 0.0f}; // 6020 位置环参数
-    float PID_6020_Spd[3] = {0.0f, 0.0f, 0.0f}; // 6020 速度环参数
-    float PID_3508_Spd[3] = {0.0f, 0.0f, 0.0f}; // 3508 速度环参数
+    float PID_6020_Pos[3] = {1800.0f, 0.01f, 0.0f}; // 6020 位置环参数
+    float PID_6020_Spd[3] = {80.0f, 0.0f, 0.0f}; // 6020 速度环参数
+    float PID_3508_Spd[3] = {7.0f, 0.0f, 0.0f}; // 3508 速度环参数
 
     for (int i = 0; i < 4; i++)
     {
         // 6020 舵向位置环：输入弧度误差，输出目标转速 (RPM)
-        PID_Init(&MOTOR->DJI_6020_Steer[i].PID_P, 300.0f, 100.0f, PID_6020_Pos,
+        PID_Init(&MOTOR->DJI_6020_Steer[i].PID_P, 150.0f, 50.0f, PID_6020_Pos,
                  0, 0, 0, 0, 0, Integral_Limit | ErrorHandle);
 
         // 6020 舵向速度环：输入 RPM 误差，输出电流值
-        PID_Init(&MOTOR->DJI_6020_Steer[i].PID_S, 16000.0f, 5000.0f, PID_6020_Spd,
+        PID_Init(&MOTOR->DJI_6020_Steer[i].PID_S, 16384.0f, 4000.0f, PID_6020_Spd,
                  0, 0, 0, 0, 0, Integral_Limit | ErrorHandle);
 
         // 3508 驱动速度环：输入 RPM 误差，输出电流值
-        PID_Init(&MOTOR->DJI_3508_Chassis[i].PID_S, 16000.0f, 3000.0f, PID_3508_Spd,
+        PID_Init(&MOTOR->DJI_3508_Chassis[i].PID_S, 16384.0f, 3000.0f, PID_3508_Spd,
                  0, 0, 0, 0, 0, Integral_Limit | ErrorHandle);
     }
-
     Power_control_init(&chassis_model);
     return DF_READY;
 }
 
+float drive_ff[4];
 void Chassis_Control_Task(MOTOR_Typdef *MOTOR) {
     // 正解算：使用反馈值更新底盘当前状态
-    Steer_Forward_Calc(&S_Now, MOTOR, IMU_Data.gyro[2], &S_Cfg);
+    Swerve_Forward_Calc(&S_Now, MOTOR, IMU_Data.gyro[2], &S_Cfg);
 
-    float vx_tar = DBUS.Remote.CH0_int16 * 0.004f;
+    float vx_tar = -DBUS.Remote.CH0_int16 * 0.004f;
     float vy_tar = DBUS.Remote.CH1_int16 * 0.004f;
-    float vw_tar = -DBUS.Remote.CH2_int16 * 0.01f;
+    float vw_tar = DBUS.Remote.CH2_int16 * 0.015f;
 
-    // 3. 外环 PID 计算 -> 产生加速度需求 (ax, ay, aw)
+    PID_Vx.Ref = vx_tar;
+    PID_Vy.Ref = vy_tar;
+    // 外环 PID 计算 -> 产生加速度需求 (ax, ay, aw)
     PID_Calculate(&PID_Vx, S_Now.vx, vx_tar);
     PID_Calculate(&PID_Vy, S_Now.vy, vy_tar);
     PID_Calculate(&PID_Vw, S_Now.vw, vw_tar);
 
-    // 逆解算：根据加速度和速度目标，计算各轮 Aim 角度、Aim 转速及驱动前馈
-    float drive_ff[4];
-    Steer_Inverse_Calc(drive_ff, MOTOR, PID_Vx.Output, PID_Vy.Output, PID_Vw.Output,
-                       vx_tar, vy_tar, vw_tar, &S_Cfg);
 
+    // 逆解算：根据加速度和速度目标，计算各轮 Aim 角度、Aim 转速及驱动前馈
+
+    Swerve_Inverse_Calc(drive_ff, MOTOR, PID_Vx.Output, PID_Vy.Output, PID_Vw.Output,
+                       vx_tar, vy_tar, vw_tar, &S_Cfg);
     for (int i = 0; i < 4; i++) {
         // 6020舵向控制
-        // 位置环：输入当前角度 (弧度)，目标为遥控器输入的 Aim 角度 -> 输出目标转速 (RPM)
+        // 位置环：输入当前角度
         PID_Calculate(&MOTOR->DJI_6020_Steer[i].PID_P,
-                      MOTOR->DJI_6020_Steer[i].DATA.Angle_now * ENCODER_TO_RAD,
-                      MOTOR->DJI_6020_Steer[i].DATA.Aim);
-
+                      MOTOR->DJI_6020_Steer[i].DATA.Angle_Infinite * ENCODER_TO_RAD,
+                      MOTOR->DJI_6020_Steer[i].PID_P.Ref);
         // 速度环：输入当前转速 (RPM)，目标为位置环输出的 Aim 转速 -> 输出电流值
         PID_Calculate(&MOTOR->DJI_6020_Steer[i].PID_S,
                       (float)MOTOR->DJI_6020_Steer[i].DATA.Speed_now,
                       MOTOR->DJI_6020_Steer[i].PID_P.Output);
-
         // 3508速度环
         // 驱动速度环：输入当前转速 (RPM)，目标为逆解算出的 Aim 转速
         PID_Calculate(&MOTOR->DJI_3508_Chassis[i].PID_S,
                       (float)MOTOR->DJI_3508_Chassis[i].DATA.Speed_now,
-                      MOTOR->DJI_3508_Chassis[i].DATA.Aim);
-
+                      MOTOR->DJI_3508_Chassis[i].PID_S.Ref);
         // 叠加动力学前馈
         MOTOR->DJI_3508_Chassis[i].PID_S.Output += drive_ff[i];
+        if (MOTOR->DJI_3508_Chassis[i].PID_S.Output>16384) MOTOR->DJI_3508_Chassis[i].PID_S.Output=16384;
+        else if (MOTOR->DJI_3508_Chassis[i].PID_S.Output<-16384) MOTOR->DJI_3508_Chassis[i].PID_S.Output=-16384;
     }
 
-    // 5. 电机控制量发送
-    if (DBUS.DBUS_ONLINE_JUDGE_TIME >= 5) {
-        // 发送驱动电机 (3508) 电流
+    if (DBUS.DBUS_ONLINE_JUDGE_TIME >= 6) {
         DJI_Motor_Send(&hfdcan1, 0x200,
                        MOTOR->DJI_3508_Chassis[0].PID_S.Output,
                        MOTOR->DJI_3508_Chassis[1].PID_S.Output,
                        MOTOR->DJI_3508_Chassis[2].PID_S.Output,
                        MOTOR->DJI_3508_Chassis[3].PID_S.Output);
 
-        // 发送舵向电机 (6020) 电流 (注意：此处必须发送速度环 PID_S 的输出)
-        DJI_Motor_Send(&hfdcan1, 0x1FE,
+        DJI_Motor_Send(&hfdcan3, 0x1FE,
                        MOTOR->DJI_6020_Steer[0].PID_S.Output,
                        MOTOR->DJI_6020_Steer[1].PID_S.Output,
                        MOTOR->DJI_6020_Steer[2].PID_S.Output,

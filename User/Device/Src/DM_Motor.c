@@ -83,7 +83,7 @@ void Motor_Mode(hcan_t* hcan, uint16_t motor_id, uint16_t mode_id, DMMotor_Mode_
     data[4] = 0xFF;
     data[5] = 0xFF;
     data[6] = 0xFF;
-    data[7] = 0xFC;
+    data[7] = what;
 
     FDCAN_Send_Msg(hcan, id, data, 8);
 }

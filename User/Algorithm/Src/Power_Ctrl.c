@@ -248,9 +248,9 @@ void Buffer_Calc(Power_Typedef* Power, User_Data_T *user_data)
         Power->buffer_energy = 60.0f;
         is_initialized = 1;
     }
-    float power_limit = 75.0f;
+    float power_limit = 120.0f;
     float max_buffer_energy = 60.0f;
-    power_limit = user_data->robot_status.chassis_power_limit;
+    //power_limit = user_data->robot_status.chassis_power_limit;
     float now_power = Power->power;
     Power->buffer_energy += (power_limit - now_power) * 0.001f;
 
