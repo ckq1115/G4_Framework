@@ -21,24 +21,24 @@ Swerve_State_t S_Now;
  */
 uint8_t Chassis_Control_Init(MOTOR_Typdef *MOTOR)
 {
-    Swerve_Init(&S_Cfg);
+    Swerve_Init(&S_Cfg,&S_Now);
 
     // 底盘速度外环,输出目标加速度
-    float PID_V_Param[3] = {0.5f, 0.0f, 0.0f};
+    float PID_V_Param[3] = {2.0f, 0.0f, 0.0f};
     PID_Init(&PID_Vx, 15.0f, 5.0f, PID_V_Param, 0, 0, 0, 0, 0, Integral_Limit | ErrorHandle);
     PID_Init(&PID_Vy, 15.0f, 5.0f, PID_V_Param, 0, 0, 0, 0, 0, Integral_Limit | ErrorHandle);
 
-    float PID_Vw_Param[3] = {1.0f, 0.0f, 0.0f};
+    float PID_Vw_Param[3] = {2.0f, 0.0f, 0.0f};
     PID_Init(&PID_Vw, 20.0f, 8.0f, PID_Vw_Param, 0, 0, 0, 0, 0, Integral_Limit | ErrorHandle);
 
-    float PID_6020_Pos[3] = {1800.0f, 0.01f, 0.0f}; // 6020 位置环参数
+    float PID_6020_Pos[3] = {1000.0f, 0.01f, 0.0f}; // 6020 位置环参数
     float PID_6020_Spd[3] = {80.0f, 0.0f, 0.0f}; // 6020 速度环参数
-    float PID_3508_Spd[3] = {7.0f, 0.0f, 0.0f}; // 3508 速度环参数
+    float PID_3508_Spd[3] = {5.0f, 0.1f, 0.0f}; // 3508 速度环参数
 
     for (int i = 0; i < 4; i++)
     {
         // 6020 舵向位置环：输入弧度误差，输出目标转速 (RPM)
-        PID_Init(&MOTOR->DJI_6020_Steer[i].PID_P, 150.0f, 50.0f, PID_6020_Pos,
+        PID_Init(&MOTOR->DJI_6020_Steer[i].PID_P, 220.0f, 50.0f, PID_6020_Pos,
                  0, 0, 0, 0, 0, Integral_Limit | ErrorHandle);
 
         // 6020 舵向速度环：输入 RPM 误差，输出电流值
@@ -53,13 +53,13 @@ uint8_t Chassis_Control_Init(MOTOR_Typdef *MOTOR)
     return DF_READY;
 }
 
-float drive_ff[4];
+
 void Chassis_Control_Task(MOTOR_Typdef *MOTOR) {
     // 正解算：使用反馈值更新底盘当前状态
-    Swerve_Forward_Calc(&S_Now, MOTOR, IMU_Data.gyro[2], &S_Cfg);
+    Swerve_Forward_Calc(&S_Now, MOTOR, -IMU_Data.gyro[2], &S_Cfg);
 
-    float vx_tar = -DBUS.Remote.CH0_int16 * 0.004f;
-    float vy_tar = DBUS.Remote.CH1_int16 * 0.004f;
+    float vx_tar = DBUS.Remote.CH1_int16 * 0.003f;
+    float vy_tar = DBUS.Remote.CH0_int16 * 0.003f;
     float vw_tar = DBUS.Remote.CH2_int16 * 0.015f;
 
     PID_Vx.Ref = vx_tar;
@@ -71,9 +71,9 @@ void Chassis_Control_Task(MOTOR_Typdef *MOTOR) {
 
 
     // 逆解算：根据加速度和速度目标，计算各轮 Aim 角度、Aim 转速及驱动前馈
-
+    float drive_ff[4];
     Swerve_Inverse_Calc(drive_ff, MOTOR, PID_Vx.Output, PID_Vy.Output, PID_Vw.Output,
-                       vx_tar, vy_tar, vw_tar, &S_Cfg);
+                       vx_tar, vy_tar, vw_tar, &S_Cfg,&S_Now);
     for (int i = 0; i < 4; i++) {
         // 6020舵向控制
         // 位置环：输入当前角度

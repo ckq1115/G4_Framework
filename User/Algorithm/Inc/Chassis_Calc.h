@@ -64,15 +64,32 @@ typedef struct {
 
 // 实时物理状态
 typedef struct {
-    float vx;        // x轴速度 (m/s)
-    float vy;        // y轴速度 (m/s)
-    float vw;        // 角速度 (rad/s)
+    float theta_now;       // 归一化±π的舵轮实际角度 (rad)
+    float theta_target;    // 归一化±π的舵轮目标角度 (rad)
+    float v_wheel_now;     // 单轮实际线速度 (m/s)
+    float v_wheel_target;  // 单轮目标线速度 (m/s)
+    float ff_out;          // 单轮前馈输出原始值
+} Swerve_Wheel_Debug_t;
+
+typedef struct {
+    // 底盘核心速度
+    float vx;        // 底盘x轴实际速度 (m/s)
+    float vy;        // 底盘y轴实际速度 (m/s)
+    float vw;        // 底盘实际角速度 (rad/s)
+    // 底盘目标指令
+    float vx_target; // 底盘x轴目标速度 (m/s)
+    float vy_target; // 底盘y轴目标速度 (m/s)
+    float vw_target; // 底盘目标角速度 (rad/s)
+    float ax_target; // 底盘x轴目标加速度 (m/s²)
+    float ay_target; // 底盘y轴目标加速度 (m/s²)
+    float aw_target; // 底盘目标角加速度 (rad/s²)
+    Swerve_Wheel_Debug_t wheel[4];
 } Swerve_State_t;
 
 extern Swerve_Cfg_t S_Cfg;
 extern Swerve_State_t S_Now;
 
-uint8_t Swerve_Init(Swerve_Cfg_t *cfg);
+uint8_t Swerve_Init(Swerve_Cfg_t *cfg, Swerve_State_t *state);
 
 /**
  * @brief 舵轮正解算 (Forward Kinematics)
@@ -90,6 +107,6 @@ void Swerve_Forward_Calc(Swerve_State_t *now, MOTOR_Typdef *motor, float gyro_vw
  */
 void Swerve_Inverse_Calc(float *ff_out, MOTOR_Typdef *motor,
                         float ax, float ay, float aw,
-                        float vx, float vy, float vw, Swerve_Cfg_t *cfg);
+                        float vx, float vy, float vw, Swerve_Cfg_t *cfg, Swerve_State_t *state);
 
 #endif //G4_FRAMEWORK_CHASSIS_CALC_H

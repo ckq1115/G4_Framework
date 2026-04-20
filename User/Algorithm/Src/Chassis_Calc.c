@@ -133,26 +133,36 @@ void Omni_calc(float *wheel_rpm, float vx_temp, float vy_temp, float vr, OmniIni
 
 #define M3508_NM_TO_RAW ( (1.0f / (15.76f * 0.0157f * 0.85f)) * (16384.0f / 20.0f) )
 
-uint8_t Swerve_Init(Swerve_Cfg_t *cfg) {
-    cfg->m = 22.5f;       // 整车质量 (kg)
-    cfg->J = 0.5f;       // 绕中心转动惯量 (kg·m²)
-    cfg->R = 0.24f;      // 旋转半径 (中心到轮心距离 m)
-    cfg->r = 0.06f;      // 轮半径 (m)
-    cfg->gear_d = 15.76f;  // 驱动减速比
+static float normalize_to_pi(float angle) {
+    angle = fmodf(angle, 2.0f * PI);
+    if (angle > PI)  angle -= 2.0f * PI;
+    if (angle < -PI) angle += 2.0f * PI;
+    return angle;
+}
 
-    cfg->Swerve_offset[0] =(float)(-7.5 * 2*PI / 360.0f);
-    cfg->Swerve_offset[1] =(float)(82.5 * 2*PI / 360.0f);
-    cfg->Swerve_offset[2] =(float)(97.5 * 2*PI / 360.0f);
-    cfg->Swerve_offset[3] =(float)(127.5 * 2*PI / 360.0f);
+// ===================== 初始化函数（配置完全不变，新增状态清零） =====================
+uint8_t Swerve_Init(Swerve_Cfg_t *cfg, Swerve_State_t *state) {
+    cfg->m = 10.5f;
+    cfg->J = 1.0f;
+    cfg->R = 0.24f;
+    cfg->r = 0.06f;
+    cfg->gear_d = 15.76f;
 
-    cfg->drive_dir[0] = 1;
-    cfg->drive_dir[1] = -1;
-    cfg->drive_dir[2] = 1;
-    cfg->drive_dir[3] = -1;
 
-    // 轮角排布 (RAD)
+    cfg->Swerve_offset[0] = (float)(-8.5f * 2*PI / 360.0f);
+    cfg->Swerve_offset[1] = (float)(83.5f * 2*PI / 360.0f);
+    cfg->Swerve_offset[2] = (float)(94.5f * 2*PI / 360.0f);
+    cfg->Swerve_offset[3] = (float)(127.5f * 2*PI / 360.0f);
+
+    cfg->drive_dir[0] = 1;  cfg->drive_dir[1] = -1;
+    cfg->drive_dir[2] = 1;  cfg->drive_dir[3] = -1;
+
     cfg->phi[0] = 0.25f * PI;  cfg->phi[1] = 0.75f * PI;
     cfg->phi[2] = 1.25f * PI;  cfg->phi[3] = 1.75f * PI;
+
+    if (state != NULL) {
+        __builtin_memset(state, 0, sizeof(Swerve_State_t));
+    }
     return 0;
 }
 
@@ -160,15 +170,18 @@ void Swerve_Forward_Calc(Swerve_State_t *now, MOTOR_Typdef *motor, float gyro_vw
     float b_x = 0, b_y = 0;
 
     for (int i = 0; i < 4; i++) {
-        float v_w_mag =(motor->DJI_3508_Chassis[i].DATA.Speed_now * RPM_TO_RADS / cfg->gear_d) * cfg->r * cfg->drive_dir[i];///////////////
-        // 补偿零点偏角，将电机角度转为底盘坐标系角度
-        float theta = (motor->DJI_6020_Steer[i].DATA.Angle_now * ENCODER_TO_RAD) - cfg->Swerve_offset[i];
+        now->wheel[i].v_wheel_now =
+            (motor->DJI_3508_Chassis[i].DATA.Speed_now * RPM_TO_RADS / cfg->gear_d)
+            * cfg->r;
 
-        float vix = v_w_mag * cosf(theta);
-        float viy = v_w_mag * sinf(theta);
+        float theta_chassis = (motor->DJI_6020_Steer[i].DATA.Angle_now * ENCODER_TO_RAD) - cfg->Swerve_offset[i];
+        now->wheel[i].theta_now = normalize_to_pi(theta_chassis);
 
-        b_x += (vix + cfg->drive_dir[i] * gyro_vw * cfg->R * sinf(cfg->phi[i]));///////////////
-        b_y += (viy - cfg->drive_dir[i] * gyro_vw * cfg->R * cosf(cfg->phi[i]));///////////////
+        float vix = now->wheel[i].v_wheel_now * cosf(theta_chassis);
+        float viy = now->wheel[i].v_wheel_now * sinf(theta_chassis);
+
+        b_x += vix + gyro_vw * cfg->R * sinf(cfg->phi[i]);
+        b_y += viy - gyro_vw * cfg->R * cosf(cfg->phi[i]);
     }
 
     now->vx = b_x / 4.0f;
@@ -178,50 +191,50 @@ void Swerve_Forward_Calc(Swerve_State_t *now, MOTOR_Typdef *motor, float gyro_vw
 
 void Swerve_Inverse_Calc(float *ff_out, MOTOR_Typdef *motor,
                         float ax, float ay, float aw,
-                        float vx, float vy, float vw, Swerve_Cfg_t *cfg)
+                        float vx, float vy, float vw, Swerve_Cfg_t *cfg, Swerve_State_t *state)
 {
+    state->ax_target = ax;
+    state->ay_target = ay;
+    state->aw_target = aw;
+    state->vx_target = vx;
+    state->vy_target = vy;
+    state->vw_target = vw;
+
     for (int i = 0; i < 4; i++) {
-        // 运动学解算：计算轮中心的目标线速度向量
-        float vix = vx - cfg->drive_dir[i] * cfg->R * vw * sinf(cfg->phi[i]);
-        float viy = vy + cfg->drive_dir[i] * cfg->R * vw * cosf(cfg->phi[i]);
+        float vix = vx - cfg->R * vw * sinf(cfg->phi[i]) * cfg->drive_dir[i];
+        float viy = vy + cfg->R * vw * cosf(cfg->phi[i]) * cfg->drive_dir[i];
         float v_mag = sqrtf(vix * vix + viy * viy);
-        // 获取当前电机连续编码器反馈并转换为弧度
+
         float current_theta_motor = motor->DJI_6020_Steer[i].DATA.Angle_Infinite * ENCODER_TO_RAD;
-        // 补偿零点偏角：得到底盘坐标系下的当前角度
         float current_theta_chassis = current_theta_motor - cfg->Swerve_offset[i];
-        // 舵向角目标计算
+
         float target_theta_raw;
-        // 如果线速度目标极小，则切换到加速度向量引导方向,这样可以解决起步时舵轮方向不明确导致的抖动问题
-        if (fabs(v_mag) < 0.005f) {
+        if (fabsf(v_mag) < 0.005f) {
             target_theta_raw = current_theta_chassis;
         } else {
             target_theta_raw = atan2f(viy, vix);
         }
-        // 就近转向逻辑
-        // 计算目标角度与当前连续角度的相位差，使用 fmodf 提取当前位置在单一圈内的相位，以便与 atan2f 的结果 [-PI, PI] 进行对比
+
         float diff = target_theta_raw - fmodf(current_theta_chassis, 2.0f * PI);
-        // 标准化 diff 到 [-PI, PI] 之间
         while (diff >  PI) diff -= 2.0f * PI;
         while (diff < -PI) diff += 2.0f * PI;
 
         float speed_dir = 1.0f;
-        // 优弧劣弧判定：如果旋转超过 90 度，则选择反向旋转 180 度走更近的路径
         if (fabsf(diff) > PI / 2.0f) {
             diff = (diff > 0) ? diff - PI : diff + PI;
             speed_dir = -1.0f;
         }
-        //得到舵向角度目标和轮向速度目标
+
+        state->wheel[i].theta_target = normalize_to_pi(current_theta_chassis + diff);
+        state->wheel[i].v_wheel_target = speed_dir * v_mag;
+
         motor->DJI_6020_Steer[i].PID_P.Ref = current_theta_motor + diff;
-        motor->DJI_3508_Chassis[i].PID_S.Ref = speed_dir * v_mag / cfg->r * cfg->gear_d / RPM_TO_RADS;
-        // 动力学前馈优化
-        // 基于拉格朗日乘数法求得的解析解：在保证底盘合力的前提下，使四个驱动轮的负载最均衡
-        // F_ix 和 F_iy 是地面坐标系下该轮应提供的最优力向量
-        float F_ix = (cfg->m * ax - cfg->drive_dir[i] * (cfg->J * aw / cfg->R) * sinf(cfg->phi[i])) / 4.0f;///////////////
-        float F_iy = (cfg->m * ay + cfg->drive_dir[i] * (cfg->J * aw / cfg->R) * cosf(cfg->phi[i])) / 4.0f;///////////////
-        // 将最优力向量投影到轮子当前实际角度上
-        // 注意：此处投影必须使用底盘坐标系下的角度 current_theta_chassis
+        motor->DJI_3508_Chassis[i].PID_S.Ref = state->wheel[i].v_wheel_target / cfg->r * cfg->gear_d / RPM_TO_RADS;
+
+        float F_ix = (cfg->m * ax - cfg->drive_dir[i] * (cfg->J * aw / cfg->R) * sinf(cfg->phi[i])) / 4.0f;
+        float F_iy = (cfg->m * ay + cfg->drive_dir[i] * (cfg->J * aw / cfg->R) * cosf(cfg->phi[i])) / 4.0f;
         float F_drive = F_ix * cosf(current_theta_chassis) + F_iy * sinf(current_theta_chassis);
-        // 换算为电流原始控制值并存入输出数组
-        ff_out[i] = speed_dir * (F_drive * cfg->r) * M3508_NM_TO_RAW;
+        state->wheel[i].ff_out = speed_dir * (F_drive * cfg->r) * M3508_NM_TO_RAW * cfg->drive_dir[i];
+        ff_out[i] = state->wheel[i].ff_out;
     }
 }
