@@ -4,9 +4,6 @@
 #include "All_Task.h"
 #include <stdio.h>
 
-#include "Chassis_Task.h"
-#include "Test_Task.h"
-
 CCM_FUNC void MY_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
         if (htim->Instance == TIM4) {
             System_Root(&ROOT_Status, &DBUS, &All_Motor, NULL);
@@ -83,14 +80,15 @@ void Motor_Task(void *argument)
         Chassis_Control_Task(&All_Motor);
         //W25N01GV_ReadID(flash_id);// ID 应该是 EF AA 21
         VOFA_justfloat(
-            IMU_Data.pitch,
-            IMU_Data.roll,
-            IMU_Data.yaw,
-            IMU_Data.YawTotalAngle,
-            g_det.base,
-            current_data.speed_i2,
-            current_data.speed_i3,
-            All_Power.P_Chassis.buffer_energy,All_Power.P_Chassis.power,g_det.cnt);
+            All_Power.P_Chassis.power,
+            All_Motor.DJI_6020_Steer[0].DATA.Speed_now,
+            All_Motor.DJI_6020_Steer[0].PID_S.Output,
+            All_Motor.DJI_6020_Steer[1].DATA.Speed_now,
+            All_Motor.DJI_6020_Steer[1].PID_S.Output,
+            All_Motor.DJI_6020_Steer[2].DATA.Speed_now,
+            All_Motor.DJI_6020_Steer[2].PID_S.Output,
+            All_Motor.DJI_6020_Steer[3].DATA.Speed_now,
+            All_Power.P_Chassis.buffer_energy,0);
         osDelay(1);
     }
 }
@@ -134,6 +132,7 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size){
     if (huart->Instance == USART1){
         uint8_t *next_buf = (pData == Referee_Rx_Buf[0]) ? Referee_Rx_Buf[1] : Referee_Rx_Buf[0];
         HAL_UARTEx_ReceiveToIdle_DMA(huart, next_buf, REFEREE_RXFRAME_LENGTH);
+        __HAL_DMA_DISABLE_IT(huart1.hdmarx, DMA_IT_HT);//关闭 DMA 半传中断
         Referee_System_Frame_Update(pData,Size);
     }
     if (huart->Instance == USART2) {

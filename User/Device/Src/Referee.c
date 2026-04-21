@@ -26,7 +26,7 @@ void Referee_System_Frame_Update(uint8_t *Buff, uint16_t Size)
                             + FrameHeader_Length
                             + CMDID_Length
                             + CRC16_Length;
-                // 防护：检查解析出的长度是否合法，防止内存越界
+                // 检查解析出的长度是否合法，防止内存越界
                 if (i + data_length <= Size)
                 {
                     // CRC16 校验整帧
@@ -35,7 +35,6 @@ void Referee_System_Frame_Update(uint8_t *Buff, uint16_t Size)
                         // 解析命令码
                         cmd_id = (uint16_t)(Buff[i + FrameHeader_Length + 1] << 8
                                           | Buff[i + FrameHeader_Length]);
-
                         // 指向负载数据起始地址
                         data_ptr = &Buff[i + FrameHeader_Length + CMDID_Length];
                         // 更新数据结构体

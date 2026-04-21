@@ -11,16 +11,18 @@
 #include "Power_CAP.h"
 #include "Referee.h"
 
-typedef struct
-{
+typedef struct {
+    float k1, k2, k3, k4;
+    float current_convert; // 电流转换系数 (3508: 20/16384, 6020: 3/16384)
+} motor_model_t;
+
+typedef struct {
     float Kp;
     float Remaining_Buffer;
-    float k1;//kt：M3508鼙鼓的转矩常数Nm/A,对应机械功率项，与转速和电流乘积成正比
-    float k2;//kr：M3508鼙鼓和C620电调的电阻Ω，对应铜损项，与电流平方成正比
-    float k3;//k_iron：M3508电机铁损系数 (W/(rad/s)²)，对应铁损项（磁滞/涡流损耗），与转速平方成正比
-    float k4;//k0：M3508电机和C620电调的静态功率W，对应固定损耗项，与转速和电流无关
-    float rpm_to_rad;//RPM 转 rad/s
-}model_t;
+    motor_model_t m3508;
+    motor_model_t m6020;
+    float rpm_to_rad;
+} model_t;
 
 void Power_control_init(model_t *model);
 void chassis_power_distribute(DJI_MOTOR_Typedef *motor[4],

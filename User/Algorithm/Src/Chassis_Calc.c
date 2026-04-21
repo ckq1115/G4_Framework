@@ -131,6 +131,7 @@ void Omni_calc(float *wheel_rpm, float vx_temp, float vy_temp, float vr, OmniIni
     }
 }
 
+//动力学前馈舵轮底盘解算
 #define M3508_NM_TO_RAW ( (1.0f / (15.76f * 0.0157f * 0.85f)) * (16384.0f / 20.0f) )
 
 static float normalize_to_pi(float angle) {
@@ -140,7 +141,6 @@ static float normalize_to_pi(float angle) {
     return angle;
 }
 
-// ===================== 初始化函数（配置完全不变，新增状态清零） =====================
 uint8_t Swerve_Init(Swerve_Cfg_t *cfg, Swerve_State_t *state) {
     cfg->m = 10.5f;
     cfg->J = 1.0f;

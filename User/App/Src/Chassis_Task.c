@@ -25,11 +25,11 @@ uint8_t Chassis_Control_Init(MOTOR_Typdef *MOTOR)
 
     // 底盘速度外环,输出目标加速度
     float PID_V_Param[3] = {2.0f, 0.0f, 0.0f};
-    PID_Init(&PID_Vx, 15.0f, 5.0f, PID_V_Param, 0, 0, 0, 0, 0, Integral_Limit | ErrorHandle);
-    PID_Init(&PID_Vy, 15.0f, 5.0f, PID_V_Param, 0, 0, 0, 0, 0, Integral_Limit | ErrorHandle);
+    PID_Init(&PID_Vx, 3.0f, 5.0f, PID_V_Param, 0, 0, 0, 0, 0, Integral_Limit | ErrorHandle);
+    PID_Init(&PID_Vy, 3.0f, 5.0f, PID_V_Param, 0, 0, 0, 0, 0, Integral_Limit | ErrorHandle);
 
     float PID_Vw_Param[3] = {2.0f, 0.0f, 0.0f};
-    PID_Init(&PID_Vw, 20.0f, 8.0f, PID_Vw_Param, 0, 0, 0, 0, 0, Integral_Limit | ErrorHandle);
+    PID_Init(&PID_Vw, 8.0f, 8.0f, PID_Vw_Param, 0, 0, 0, 0, 0, Integral_Limit | ErrorHandle);
 
     float PID_6020_Pos[3] = {1000.0f, 0.01f, 0.0f}; // 6020 位置环参数
     float PID_6020_Spd[3] = {80.0f, 0.0f, 0.0f}; // 6020 速度环参数
@@ -62,13 +62,10 @@ void Chassis_Control_Task(MOTOR_Typdef *MOTOR) {
     float vy_tar = DBUS.Remote.CH0_int16 * 0.003f;
     float vw_tar = DBUS.Remote.CH2_int16 * 0.015f;
 
-    PID_Vx.Ref = vx_tar;
-    PID_Vy.Ref = vy_tar;
     // 外环 PID 计算 -> 产生加速度需求 (ax, ay, aw)
     PID_Calculate(&PID_Vx, S_Now.vx, vx_tar);
     PID_Calculate(&PID_Vy, S_Now.vy, vy_tar);
     PID_Calculate(&PID_Vw, S_Now.vw, vw_tar);
-
 
     // 逆解算：根据加速度和速度目标，计算各轮 Aim 角度、Aim 转速及驱动前馈
     float drive_ff[4];
@@ -91,6 +88,7 @@ void Chassis_Control_Task(MOTOR_Typdef *MOTOR) {
                       MOTOR->DJI_3508_Chassis[i].PID_S.Ref);
         // 叠加动力学前馈
         MOTOR->DJI_3508_Chassis[i].PID_S.Output += drive_ff[i];
+        chassis_power_control(&contal,&User_data,&chassis_model,&CAP_Get,&All_Motor);
         if (MOTOR->DJI_3508_Chassis[i].PID_S.Output>16384) MOTOR->DJI_3508_Chassis[i].PID_S.Output=16384;
         else if (MOTOR->DJI_3508_Chassis[i].PID_S.Output<-16384) MOTOR->DJI_3508_Chassis[i].PID_S.Output=-16384;
     }
