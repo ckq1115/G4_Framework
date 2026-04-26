@@ -99,6 +99,7 @@ void Test_Init(void) {
     float PID_P_S1[3] = {3.0f,0.0f,0.0f};
     float PID_S_S1[3] = {60.0f,0.05f,0.0f};
 
+    float PID_S_SHOOT[3] = {4.0f,0.0f,0.0f};
     PID_Init(&All_Motor.DJI_6020_Steer[0].PID_P,200,50,
         PID_P_S1,0,0,
         0,0,0,
@@ -107,6 +108,12 @@ void Test_Init(void) {
         );//微分先行,微分滤波器
     PID_Init(&All_Motor.DJI_6020_Steer[0].PID_S,16000,4000,
         PID_S_S1,0,0,
+        0,0,0,
+        Integral_Limit|ErrorHandle//积分限幅,输出滤波,堵转监测
+        //梯形积分,变速积分
+        );//微分先行,微分滤波器
+    PID_Init(&All_Motor.DJI_2006_bo.PID_S,16000,4000,
+        PID_S_SHOOT,0,0,
         0,0,0,
         Integral_Limit|ErrorHandle//积分限幅,输出滤波,堵转监测
         //梯形积分,变速积分
@@ -133,4 +140,7 @@ void Ctrl_Test_Task(void) {
     PID_Calculate(&All_Motor.DJI_6020_Steer[0].PID_S,All_Motor.DJI_6020_Steer[0].DATA.Speed_now,All_Motor.DJI_6020_Steer[0].PID_P.Output);
     DJI_Motor_Send(&hfdcan3,0x1FE,0,-All_Motor.DJI_6020_Pitch.PID_S.Output,All_Motor.DJI_6020_Steer[0].PID_S.Output,0);
     //LK_Motor_Iq_Send(&hfdcan2,1,All_Motor.LK9025_Yaw.PID_S.Output);
+
+    PID_Calculate(&All_Motor.DJI_2006_bo.PID_S,All_Motor.DJI_2006_bo.DATA.Speed_now,All_Motor.DJI_2006_bo.PID_S.Ref);
+    DJI_Motor_Send(&hfdcan2,0x200,0,0,All_Motor.DJI_2006_bo.PID_S.Output,0);
 }

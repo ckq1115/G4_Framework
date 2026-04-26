@@ -87,7 +87,7 @@ void Motor_Task(void *argument)
             All_Motor.DJI_6020_Steer[1].PID_S.Output,
             All_Motor.DJI_6020_Steer[2].DATA.Speed_now,
             All_Motor.DJI_6020_Steer[2].PID_S.Output,
-            All_Motor.DJI_6020_Steer[3].DATA.Speed_now,
+            pall,
             All_Power.P_Chassis.buffer_energy,0);
         osDelay(1);
     }
@@ -96,7 +96,7 @@ void Motor_Task(void *argument)
 void Test_Task(void *argument)
 {
     (void)argument;
-    //Test_Init();
+    Test_Init();
     ui_config_t ui_cfg = {
         .max_cap = 100.0f,
         .max_wr = 60.0f,
@@ -111,7 +111,7 @@ void Test_Task(void *argument)
         h_ui.cap = IMU_Data.roll;
         UI_OnLoop(&h_ui);
         UI_SendUartCmd(&h_ui);
-        //Ctrl_Test_Task();
+        Ctrl_Test_Task();
         osDelay(1);
     }
 }
@@ -292,6 +292,9 @@ CCM_FUNC void HAL_FDCAN_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t Rx
                 case 0x602:
                     CAN_POWER_Rx(&All_Power.P_Chassis, data);
                     Buffer_Calc(&All_Power.P_Chassis, &User_data);
+                    break;
+                case 0x203:
+                    DJI_Motor_Resolve(&All_Motor.DJI_2006_bo, data);
                     break;
                 default:
                     break;
