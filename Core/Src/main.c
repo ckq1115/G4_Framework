@@ -267,6 +267,7 @@ void Error_Handler(void)
   for(volatile uint32_t i=0; i<50000; i++);
   /* User can add his own implementation to report the HAL error return state */
   __disable_irq();
+  HAL_NVIC_SystemReset();
   while (1)
   {
   }

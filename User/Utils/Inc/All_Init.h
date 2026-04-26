@@ -32,6 +32,9 @@
 #include "Test_Task.h"
 #include "RMUI.h"
 #include "VT13.h"
+#include "Chassis_Calc.h"
+#include "Chassis_Task.h"
+#include "Test_Task.h"
 
 extern uint8_t DBUS_RX_DATA[18];
 extern DBUS_Typedef DBUS;

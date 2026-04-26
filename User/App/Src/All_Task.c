@@ -4,9 +4,6 @@
 #include "All_Task.h"
 #include <stdio.h>
 
-#include "Chassis_Task.h"
-#include "Test_Task.h"
-
 CCM_FUNC void MY_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
         if (htim->Instance == TIM4) {
             System_Root(&ROOT_Status, &DBUS, &All_Motor, NULL);
@@ -78,20 +75,20 @@ void Motor_Task(void *argument)
     {
         Error_Handler();
     }
-    //Motor_Mode(&hfdcan1,1,0x200,0xfc);
     for(;;)
     {
-        //Chassis_Control_Task(&All_Motor);
+        Chassis_Control_Task(&All_Motor);
         //W25N01GV_ReadID(flash_id);// ID 应该是 EF AA 21
         VOFA_justfloat(
-            IMU_Data.pitch,
-            IMU_Data.roll,
-            IMU_Data.yaw,
-            IMU_Data.YawTotalAngle,
-            g_det.base,
-            current_data.speed_i2,
-            current_data.speed_i3,
-            0,g_det.armed*100,g_det.cnt);
+            All_Power.P_Chassis.power,
+            All_Motor.DJI_6020_Steer[0].DATA.Speed_now,
+            All_Motor.DJI_6020_Steer[0].PID_S.Output,
+            All_Motor.DJI_6020_Steer[1].DATA.Speed_now,
+            All_Motor.DJI_6020_Steer[1].PID_S.Output,
+            All_Motor.DJI_6020_Steer[2].DATA.Speed_now,
+            All_Motor.DJI_6020_Steer[2].PID_S.Output,
+            pall,
+            All_Power.P_Chassis.buffer_energy,0);
         osDelay(1);
     }
 }
@@ -114,7 +111,7 @@ void Test_Task(void *argument)
         h_ui.cap = IMU_Data.roll;
         UI_OnLoop(&h_ui);
         UI_SendUartCmd(&h_ui);
-        //Ctrl_Test_Task();
+        Ctrl_Test_Task();
         osDelay(1);
     }
 }
@@ -135,6 +132,7 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size){
     if (huart->Instance == USART1){
         uint8_t *next_buf = (pData == Referee_Rx_Buf[0]) ? Referee_Rx_Buf[1] : Referee_Rx_Buf[0];
         HAL_UARTEx_ReceiveToIdle_DMA(huart, next_buf, REFEREE_RXFRAME_LENGTH);
+        __HAL_DMA_DISABLE_IT(huart1.hdmarx, DMA_IT_HT);//关闭 DMA 半传中断
         Referee_System_Frame_Update(pData,Size);
     }
     if (huart->Instance == USART2) {
@@ -216,9 +214,6 @@ CCM_FUNC void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t Rx
                     CAN_POWER_Rx(&All_Power.P_Chassis, data);
                     Buffer_Calc(&All_Power.P_Chassis, &User_data);
                     break;
-                case 0x207:
-                    DJI_Motor_Resolve(&All_Motor.DJI_6020_Yaw, data);
-                    break;
                 case 0x206:
                     DJI_Motor_Resolve(&All_Motor.DJI_6020_Pitch, data);
                     break;
@@ -235,6 +230,18 @@ CCM_FUNC void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t Rx
                     break;
                 case 0x202:
                     DJI_Motor_Resolve(&All_Motor.DJI_2006_Yaw, data);
+                    break;
+                case 0x205:
+                    DJI_Motor_Resolve(&All_Motor.DJI_6020_Steer[0], data);
+                    break;
+                case 0x206:
+                    DJI_Motor_Resolve(&All_Motor.DJI_6020_Steer[1], data);
+                    break;
+                case 0x207:
+                    DJI_Motor_Resolve(&All_Motor.DJI_6020_Steer[2], data);
+                    break;
+                case 0x208:
+                    DJI_Motor_Resolve(&All_Motor.DJI_6020_Steer[3], data);
                     break;
                 default:
                     break;
@@ -281,6 +288,13 @@ CCM_FUNC void HAL_FDCAN_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t Rx
             {
                 case 0x305:
                     DM_1to4_Resolve(&All_Motor.DM4310_Pitch, data);
+                    break;
+                case 0x602:
+                    CAN_POWER_Rx(&All_Power.P_Chassis, data);
+                    Buffer_Calc(&All_Power.P_Chassis, &User_data);
+                    break;
+                case 0x203:
+                    DJI_Motor_Resolve(&All_Motor.DJI_2006_bo, data);
                     break;
                 default:
                     break;

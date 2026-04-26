@@ -51,6 +51,7 @@ void HEAD_MOTOR_CLEAR(DJI_MOTOR_Typedef* MOTOR , uint8_t mode)
 
 /**
  * @brief 通用发送函数
+ * @param hcan
  */
 void DJI_Motor_Send(FDCAN_HandleTypeDef* hcan, uint32_t stdid, int16_t n1, int16_t n2, int16_t n3, int16_t n4) {
     uint8_t data[8];

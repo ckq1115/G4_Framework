@@ -44,33 +44,52 @@ typedef struct
 
 extern OmniInit_typdef OmniInit_t;
 
-// 舵轮物理常量
-typedef struct {
-    float m;         // 底盘质量 (kg)
-    float J;         // 转动惯量 (kg*m^2)
-    float R;         // 旋转半径 (m)
-    float r;         // 轮子半径 (m)
-    float phi[4];    // 轮子安装方位角 (rad)
-    float gear_d;    // 驱动电机减速比 (M3508通常19:1)
-} Steer_Cfg_t;
-
-// 实时物理状态 (不干扰功率模型)
-typedef struct {
-    float vx;        // x轴速度 (m/s)
-    float vy;        // y轴速度 (m/s)
-    float vw;        // 角速度 (rad/s)
-} Steer_State_t;
-
-extern Steer_Cfg_t S_Cfg;
-extern Steer_State_t S_Now;
-
 uint8_t MecanumInit(mecanumInit_typdef *mecanumInitT);
 void MecanumResolve(float *wheel_rpm, float vx_temp, float vy_temp, float vr, mecanumInit_typdef *mecanumInit_t);
 
 uint8_t OmniInit(OmniInit_typdef *OmniInitT);
 void Omni_calc(float *wheel_rpm, float vx_temp, float vy_temp, float vr, OmniInit_typdef *OmniInit_t);
 
-uint8_t Steer_Init(Steer_Cfg_t *cfg);
+// 舵轮物理常量
+typedef struct {
+    float m;         // 底盘质量 (kg)
+    float J;         // 转动惯量 (kg*m^2)
+    float R;         // 旋转半径 (m)
+    float r;         // 轮子半径 (m)
+    float Swerve_offset[4]; // 舵轮零点偏角
+    float drive_dir[4]; // 轮子正转方向 (1或-1)
+    float phi[4];    // 轮子安装方位角 (rad)
+    float gear_d;    // 驱动电机减速比 (M3508通常19:1)
+} Swerve_Cfg_t;
+
+// 实时物理状态
+typedef struct {
+    float theta_now;       // 归一化±π的舵轮实际角度 (rad)
+    float theta_target;    // 归一化±π的舵轮目标角度 (rad)
+    float v_wheel_now;     // 单轮实际线速度 (m/s)
+    float v_wheel_target;  // 单轮目标线速度 (m/s)
+    float ff_out;          // 单轮前馈输出原始值
+} Swerve_Wheel_Debug_t;
+
+typedef struct {
+    // 底盘核心速度
+    float vx;        // 底盘x轴实际速度 (m/s)
+    float vy;        // 底盘y轴实际速度 (m/s)
+    float vw;        // 底盘实际角速度 (rad/s)
+    // 底盘目标指令
+    float vx_target; // 底盘x轴目标速度 (m/s)
+    float vy_target; // 底盘y轴目标速度 (m/s)
+    float vw_target; // 底盘目标角速度 (rad/s)
+    float ax_target; // 底盘x轴目标加速度 (m/s²)
+    float ay_target; // 底盘y轴目标加速度 (m/s²)
+    float aw_target; // 底盘目标角加速度 (rad/s²)
+    Swerve_Wheel_Debug_t wheel[4];
+} Swerve_State_t;
+
+extern Swerve_Cfg_t S_Cfg;
+extern Swerve_State_t S_Now;
+
+uint8_t Swerve_Init(Swerve_Cfg_t *cfg, Swerve_State_t *state);
 
 /**
  * @brief 舵轮正解算 (Forward Kinematics)
@@ -78,7 +97,7 @@ uint8_t Steer_Init(Steer_Cfg_t *cfg);
  * @param motor 输入电机结构体指针
  * @param gyro_vw IMU角速度反馈
  */
-void Steer_Forward_Calc(Steer_State_t *now, MOTOR_Typdef *motor, float gyro_vw, Steer_Cfg_t *cfg);
+void Swerve_Forward_Calc(Swerve_State_t *now, MOTOR_Typdef *motor, float gyro_vw, Swerve_Cfg_t *cfg);
 
 /**
  * @brief 舵轮力控逆解算 (Inverse Kinematics with Feedforward)
@@ -86,7 +105,8 @@ void Steer_Forward_Calc(Steer_State_t *now, MOTOR_Typdef *motor, float gyro_vw, 
  * @param ax/ay/aw 输入目标加速度 (由外环PID产生)
  * @param vx/vy/vw 输入目标速度
  */
-void Steer_Inverse_Calc(float *ff_out, MOTOR_Typdef *motor,
+void Swerve_Inverse_Calc(float *ff_out, MOTOR_Typdef *motor,
                         float ax, float ay, float aw,
-                        float vx, float vy, float vw, Steer_Cfg_t *cfg);
+                        float vx, float vy, float vw, Swerve_Cfg_t *cfg, Swerve_State_t *state);
+
 #endif //G4_FRAMEWORK_CHASSIS_CALC_H
