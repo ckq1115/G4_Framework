@@ -35,6 +35,7 @@
 #include "Chassis_Calc.h"
 #include "Chassis_Task.h"
 #include "Test_Task.h"
+#include "CAN_Comm.h"
 
 extern uint8_t DBUS_RX_DATA[18];
 extern DBUS_Typedef DBUS;
@@ -47,7 +48,6 @@ extern VT13_UNION_Typdef VT13_UNION;
 extern MOTOR_Typdef All_Motor;
 
 extern CONTAL_Typedef contal;
-extern CAP_RXDATA CAP_Get;
 
 extern UI_t h_ui;
 

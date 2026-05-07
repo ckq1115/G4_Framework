@@ -17,7 +17,6 @@ CCM_DATA ROOT_STATUS_Typedef ROOT_Status;
 ALL_POWER_RX All_Power = {0};
 
 CONTAL_Typedef contal;
-CAP_RXDATA CAP_Get;
 
 User_Data_T User_data;
 uint8_t Referee_Rx_Buf[2][REFEREE_RXFRAME_LENGTH];

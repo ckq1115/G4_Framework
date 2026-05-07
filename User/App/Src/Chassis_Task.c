@@ -24,21 +24,21 @@ uint8_t Chassis_Control_Init(MOTOR_Typdef *MOTOR)
     Swerve_Init(&S_Cfg,&S_Now);
 
     // 底盘速度外环,输出目标加速度
-    float PID_V_Param[3] = {2.0f, 0.0f, 0.0f};
-    PID_Init(&PID_Vx, 3.0f, 5.0f, PID_V_Param, 0, 0, 0, 0, 0, Integral_Limit | ErrorHandle);
-    PID_Init(&PID_Vy, 3.0f, 5.0f, PID_V_Param, 0, 0, 0, 0, 0, Integral_Limit | ErrorHandle);
+    float PID_V_Param[3] = {8.0f, 0.0f, 0.0f};
+    PID_Init(&PID_Vx, 8.0f, 5.0f, PID_V_Param, 0, 0, 0, 0, 0, Integral_Limit | ErrorHandle);
+    PID_Init(&PID_Vy, 8.0f, 5.0f, PID_V_Param, 0, 0, 0, 0, 0, Integral_Limit | ErrorHandle);
 
     float PID_Vw_Param[3] = {2.0f, 0.0f, 0.0f};
     PID_Init(&PID_Vw, 8.0f, 8.0f, PID_Vw_Param, 0, 0, 0, 0, 0, Integral_Limit | ErrorHandle);
 
     float PID_6020_Pos[3] = {600.0f, 0.01f, 0.0f}; // 6020 位置环参数
-    float PID_6020_Spd[3] = {80.0f, 0.0f, 0.0f}; // 6020 速度环参数
+    float PID_6020_Spd[3] = {80.0f, 0.01f, 0.0f}; // 6020 速度环参数
     float PID_3508_Spd[3] = {5.0f, 0.1f, 0.0f}; // 3508 速度环参数
 
     for (int i = 0; i < 4; i++)
     {
         // 6020 舵向位置环：输入弧度误差，输出目标转速 (RPM)
-        PID_Init(&MOTOR->DJI_6020_Steer[i].PID_P, 220.0f, 50.0f, PID_6020_Pos,
+        PID_Init(&MOTOR->DJI_6020_Steer[i].PID_P, 250.0f, 50.0f, PID_6020_Pos,
                  0, 0, 0, 0, 0, Integral_Limit | ErrorHandle);
 
         // 6020 舵向速度环：输入 RPM 误差，输出电流值
@@ -58,9 +58,11 @@ void Chassis_Control_Task(MOTOR_Typdef *MOTOR) {
     // 正解算：使用反馈值更新底盘当前状态
     Swerve_Forward_Calc(&S_Now, MOTOR, -IMU_Data.gyro[2], &S_Cfg);
 
-    float vx_tar = DBUS.Remote.CH1_int16 * 0.003f;
-    float vy_tar = DBUS.Remote.CH0_int16 * 0.003f;
-    float vw_tar = DBUS.Remote.CH2_int16 * 0.015f;
+    float vx_tar,vy_tar,vw_tar;
+
+    vx_tar = DBUS.Remote.CH1_int16 * 0.003f + DBUS.KeyBoard.W * 1.0f - DBUS.KeyBoard.S * 1.0f ;
+    vy_tar = DBUS.Remote.CH0_int16 * 0.003f + DBUS.KeyBoard.D * 1.0f - DBUS.KeyBoard.A * 1.0f;
+    vw_tar = DBUS.Remote.CH2_int16 * 0.015f + DBUS.KeyBoard.E * 3.0f - DBUS.KeyBoard.Q * 3.0f + DBUS.Mouse.X_Flt * 0.02f;
 
     // 外环 PID 计算 -> 产生加速度需求 (ax, ay, aw)
     PID_Calculate(&PID_Vx, S_Now.vx, vx_tar);
@@ -90,7 +92,7 @@ void Chassis_Control_Task(MOTOR_Typdef *MOTOR) {
         MOTOR->DJI_3508_Chassis[i].PID_S.Output += drive_ff[i];
         if (MOTOR->DJI_3508_Chassis[i].PID_S.Output>16384) MOTOR->DJI_3508_Chassis[i].PID_S.Output=16384;
         else if (MOTOR->DJI_3508_Chassis[i].PID_S.Output<-16384) MOTOR->DJI_3508_Chassis[i].PID_S.Output=-16384;
-        chassis_power_control(&contal,&User_data,&chassis_model,&CAP_Get,&All_Motor);
+        chassis_power_control(&contal,&User_data,&chassis_model,&cap,&All_Motor);
     }
 
     if (DBUS.DBUS_ONLINE_JUDGE_TIME >= 6) {
@@ -153,25 +155,25 @@ uint8_t Chassis_Control_Init(MOTOR_Typdef *MOTOR)
     float PID_S_3[3] = {5.0f,0.01f,0};
     float PID_Angle[3] = {9.0f,0,0};
 
-    PID_Init(&MOTOR->DJI_3508_Chassis[0].PID_S, 100000.0f, 1000.0f,
+    PID_Init(&MOTOR->DJI_3508_Chassis[0].PID_S, 16384.0f, 1000.0f,
              PID_S_0, 0, 0,
              0, 0, 0,
              Integral_Limit|ErrorHandle//积分限幅,输出滤波,堵转监测
              //梯形积分,变速积分
              );//微分先行,微分滤波器
-    PID_Init(&MOTOR->DJI_3508_Chassis[1].PID_S, 100000.0f, 1000.0f,
+    PID_Init(&MOTOR->DJI_3508_Chassis[1].PID_S, 16384.0f, 1000.0f,
              PID_S_1, 0, 0,
              0, 0, 0,
              Integral_Limit|ErrorHandle//积分限幅,输出滤波,堵转监测
              //梯形积分,变速积分
              );//微分先行,微分滤波器
-    PID_Init(&MOTOR->DJI_3508_Chassis[2].PID_S, 100000.0f, 1000.0f,
+    PID_Init(&MOTOR->DJI_3508_Chassis[2].PID_S, 16384.0f, 1000.0f,
              PID_S_2, 0, 0,
              0, 0, 0,
              Integral_Limit|ErrorHandle//积分限幅,输出滤波,堵转监测
              //梯形积分,变速积分
              );//微分先行,微分滤波器
-    PID_Init(&MOTOR->DJI_3508_Chassis[3].PID_S, 100000.0f, 1000.0f,
+    PID_Init(&MOTOR->DJI_3508_Chassis[3].PID_S, 16384.0f, 1000.0f,
              PID_S_3, 0, 0,
              0, 0, 0,
              Integral_Limit|ErrorHandle//积分限幅,输出滤波,堵转监测
@@ -197,19 +199,19 @@ void Chassis_Control_Task(MOTOR_Typdef *MOTOR)
     float vy_target = 0;
     static float yaw_in = 0;
 
-    if (C_DBUS.Remote.S2_u8 == 1) {
-        vx_target = C_DBUS.Remote.CH0_int16 * 3.0f;
-        vy_target = C_DBUS.Remote.CH1_int16 * 3.0f;
-        yaw_in = -C_DBUS.Remote.CH2_int16 * 0.05f + C_DBUS.Remote.Dial_int16 * 0.15f;
+    if (DBUS.Remote.S2_u8 == 1) {
+        vx_target = DBUS.Remote.CH0_int16 * 3.0f;
+        vy_target = DBUS.Remote.CH1_int16 * 3.0f;
+        yaw_in = DBUS.Remote.CH2_int16 * 0.05f - DBUS.Remote.Dial_int16 * 0.15f;
 
     }
-    else if (C_DBUS.Remote.S2_u8 == 3) {
-        if (C_DBUS.Remote.S1_u8 == 1)
+    else if (DBUS.Remote.S2_u8 == 3) {
+        if (DBUS.Remote.S1_u8 == 1)
         {
             float world_vx = 0.0f;
             float world_vy = 0.0f;
-            world_vx = C_DBUS.Remote.CH0_int16 * 2.0f;
-            world_vy = C_DBUS.Remote.CH1_int16 * 1.2f;
+            world_vx = DBUS.Remote.CH0_int16 * 2.0f;
+            world_vy = DBUS.Remote.CH1_int16 * 1.2f;
             yaw_in = -18;
             float yaw_rad = IMU_Data.yaw * PI / 180.0f;
             vx_target = world_vx * cosf(yaw_rad) + world_vy * sinf(yaw_rad);
@@ -237,15 +239,12 @@ void Chassis_Control_Task(MOTOR_Typdef *MOTOR)
                       MOTOR->DJI_3508_Chassis[i].DATA.Speed_now,
                       wheel_rpm[i]);
     }
-    chassis_power_control(&contal,&User_data,&chassis_model,&CAP_Get,&All_Motor);
-    if (C_DBUS.DBUS_ONLINE_JUDGE_TIME >= 5) {
+    //chassis_power_control(&contal,&User_data,&chassis_model,&CAP_Get,&All_Motor);
+    if (DBUS.DBUS_ONLINE_JUDGE_TIME >= 5) {
         //DJI_Motor_Send(&hfdcan1,0x200,I_cmd[0],I_cmd[1],I_cmd[2],I_cmd[3]);
         DJI_Motor_Send(&hfdcan1,0x200,MOTOR->DJI_3508_Chassis[0].PID_S.Output,
             MOTOR->DJI_3508_Chassis[1].PID_S.Output,
             MOTOR->DJI_3508_Chassis[2].PID_S.Output,
             MOTOR->DJI_3508_Chassis[3].PID_S.Output);
-    }
-    else {
-        DJI_Motor_Send(&hfdcan1,0x200,0,0,0,0);
     }
 }*/

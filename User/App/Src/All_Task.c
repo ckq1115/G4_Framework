@@ -4,6 +4,8 @@
 #include "All_Task.h"
 #include <stdio.h>
 
+#include "CAN_Comm.h"
+
 CCM_FUNC void MY_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
         if (htim->Instance == TIM4) {
             System_Root(&ROOT_Status, &DBUS, &All_Motor, NULL);
@@ -87,11 +89,12 @@ void Motor_Task(void *argument)
             All_Motor.DJI_6020_Steer[1].PID_S.Output,
             All_Motor.DJI_6020_Steer[2].DATA.Speed_now,
             All_Motor.DJI_6020_Steer[2].PID_S.Output,
-            pall,
-            All_Power.P_Chassis.buffer_energy,0);
+            All_Motor.DM4310_Yaw.PID_P.Ref,
+            IMU_Data.YawTotalAngle,0);
         osDelay(1);
     }
 }
+
 
 void Test_Task(void *argument)
 {
@@ -104,6 +107,7 @@ void Test_Task(void *argument)
         .max_shoot = 10.0f
     };
     UI_Init(&h_ui, &ui_cfg);
+    Motor_Mode(&hfdcan2,0x01,0x300,0xfc);
     for(;;)
     {
         h_ui.yaw = IMU_Data.yaw;
@@ -112,6 +116,7 @@ void Test_Task(void *argument)
         UI_OnLoop(&h_ui);
         UI_SendUartCmd(&h_ui);
         Ctrl_Test_Task();
+        Test_Tx();
         osDelay(1);
     }
 }
@@ -293,8 +298,14 @@ CCM_FUNC void HAL_FDCAN_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t Rx
                     CAN_POWER_Rx(&All_Power.P_Chassis, data);
                     Buffer_Calc(&All_Power.P_Chassis, &User_data);
                     break;
-                case 0x203:
+                case 0x201:
                     DJI_Motor_Resolve(&All_Motor.DJI_2006_bo, data);
+                    break;
+                case 0x500:
+                    CAN_TP_Rx_Parser(data, DLC_To_Bytes(rx.DataLength));
+                    break;
+                case 0x301:
+                    DM_1to4_Resolve(&All_Motor.DM4310_Yaw, data);
                     break;
                 default:
                     break;

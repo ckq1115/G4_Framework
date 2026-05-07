@@ -43,9 +43,9 @@ typedef struct {
     bool buzzer;         // 是否需要蜂鸣器
 } Status_t;
 
-void System_Root(ROOT_STATUS_Typedef *Root, DBUS_Typedef *DBUS, MOTOR_Typdef *MOTOR, CAP_RXDATA *CAP_GET);
+void System_Root(ROOT_STATUS_Typedef *Root, DBUS_Typedef *DBUS, MOTOR_Typdef *MOTOR, Cap_t *CAP_GET);
 //总的状态监测
-void All_Status(ROOT_STATUS_Typedef *Root, DBUS_Typedef *DBUS, MOTOR_Typdef *MOTOR, CAP_RXDATA *CAP_GET);
+void All_Status(ROOT_STATUS_Typedef *Root, DBUS_Typedef *DBUS, MOTOR_Typdef *MOTOR, Cap_t *CAP_GET);
 void LED_Show_Status(ROOT_STATUS_Typedef *Root);
 void Buzzer_UpdateCycle(float activeTime, float period, uint16_t maxVolume);
 void Buzzer_Start();

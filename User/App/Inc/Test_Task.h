@@ -48,4 +48,32 @@ bool Update_Shoot_Det(float speed1, float speed2, ShootDet_t *det);
 void Test_Init(void);
 void Ctrl_Test_Task(void);
 
+typedef struct __attribute__((packed))
+{
+    int16_t ch0;
+    int16_t ch1;
+    float pitch;
+    float roll;
+    float yaw;
+    int16_t ch2;
+    int16_t ch3;
+    uint8_t s1:2;
+    uint8_t s2:2;
+    float accel[3];
+}Tx_t;//双板通讯发送
+
+typedef struct __attribute__((packed)){
+    int16_t ch0;
+    int16_t ch1;
+    float pitch;
+    float roll;
+    float yaw;
+    int16_t ch2;
+    int16_t ch3;
+    uint8_t s1:2;
+    uint8_t s2:2;
+    float accel[3];
+}Rx_t;//双板通讯接收
+
+void Test_Tx(void);
 #endif //G4_FRAMEWORK_TEST_TASK_H

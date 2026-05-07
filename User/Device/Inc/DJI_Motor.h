@@ -9,7 +9,6 @@
 #include "CKQ_MATH.h"
 #include "controller.h"
 
-// --- 统一处理接口 ---
 typedef struct {
     int8_t ONLINE_JUDGE_TIME;
     int16_t Angle_last;
@@ -39,7 +38,6 @@ typedef struct {
     PID_t PID_S;
 } DJI_MOTOR_Typedef;
 
-// 核心分发与发送
 void DJI_Motor_Dispatch(FDCAN_HandleTypeDef *hfdcan, uint32_t FIFO_x);
 void DJI_Motor_Resolve(void* instance, uint8_t* rx_data);
 void DJI_Motor_Send(FDCAN_HandleTypeDef* hcan, uint32_t stdid, int16_t n1, int16_t n2, int16_t n3, int16_t n4);

@@ -60,7 +60,7 @@ void DM_1to4_Resolve(DM_MOTOR_Typdef *motor, uint8_t *rx_data)
     motor->DATA.current = ((float)cur_raw);
     motor->DATA.Tcoil = (float)(rx_data[6]);
     motor->DATA.Tmos = (float)(rx_data[7]);
-    motor->DATA.reality = (int32_t)((motor->DATA.round * 8192) + motor->DATA.Angle_now);
+    motor->DATA.Angle_Infinite = (int32_t)((motor->DATA.round * 8192) + motor->DATA.Angle_now);
     motor->DATA.ONLINE_JUDGE_TIME = MOTOR_OFFLINE_TIME;
 }
 
@@ -164,13 +164,12 @@ void Speed_Ctrl(FDCAN_HandleTypeDef* hcan, uint16_t motor_id, float vel)
 void DM_Motor_Send(FDCAN_HandleTypeDef* hcan, uint16_t master_id, float m1_cur, float m2_cur, float m3_cur, float m4_cur)
 {
     uint8_t data[8];
-    float ratio = 819.2f; // 16384/20
     int16_t cur_val[4];
 
-    cur_val[0] = (int16_t)(m1_cur * ratio);
-    cur_val[1] = (int16_t)(m2_cur * ratio);
-    cur_val[2] = (int16_t)(m3_cur * ratio);
-    cur_val[3] = (int16_t)(m4_cur * ratio);
+    cur_val[0] = (int16_t)(m1_cur);
+    cur_val[1] = (int16_t)(m2_cur);
+    cur_val[2] = (int16_t)(m3_cur);
+    cur_val[3] = (int16_t)(m4_cur);
 
     for(int i=0; i<4; i++) {
         data[i*2]   = (uint8_t)(cur_val[i] >> 8);

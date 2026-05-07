@@ -10,7 +10,7 @@
 #include "tim.h"
 #include "WS2812.h"
 
-void System_Root(ROOT_STATUS_Typedef *Root, DBUS_Typedef *DBUS, MOTOR_Typdef *MOTOR, CAP_RXDATA *CAP_GET)
+void System_Root(ROOT_STATUS_Typedef *Root, DBUS_Typedef *DBUS, MOTOR_Typdef *MOTOR, Cap_t *CAP_GET)
 {
     All_Status(Root, DBUS, MOTOR, CAP_GET);
     static uint32_t led_tick = 0;
@@ -57,7 +57,7 @@ uint8_t DM_MOTOR_STATUS(DM_MOTOR_DATA_Typdef* DATA)
     return DEVICE_ONLINE;
 }
 
-void All_Status(ROOT_STATUS_Typedef *Root, DBUS_Typedef *DBUS, MOTOR_Typdef *MOTOR, CAP_RXDATA *CAP_GET)
+void All_Status(ROOT_STATUS_Typedef *Root, DBUS_Typedef *DBUS, MOTOR_Typdef *MOTOR, Cap_t *CAP_GET)
 {
     if (DBUS->DBUS_ONLINE_JUDGE_TIME < 5)
     {
@@ -71,15 +71,16 @@ void All_Status(ROOT_STATUS_Typedef *Root, DBUS_Typedef *DBUS, MOTOR_Typdef *MOT
     DBUS->DBUS_ONLINE_JUDGE_TIME--;
 
     //电容在线监测
-    if(CAP_GET->ONLINE_JUDGE_TIME < 5)
+    if(CAP_GET->get.ONLINE_JUDGE_TIME < 5)
     {
-        CAP_GET->ONLINE_JUDGE_TIME = 3;
+        CAP_GET->get.ONLINE_JUDGE_TIME = 3;
         Root->Cap = DEVICE_OFFLINE;
     }
     else
     {
         Root->Cap = DEVICE_ONLINE;
     }
+    CAP_GET->get.ONLINE_JUDGE_TIME--;
     Root->MOTOR_Chassis_1 = DJI_MOTOR_STATUS(&All_Motor.DJI_3508_Chassis[0].DATA);
     Root->MOTOR_Chassis_2 = DJI_MOTOR_STATUS(&All_Motor.DJI_3508_Chassis[1].DATA);
     Root->MOTOR_Chassis_3 = DJI_MOTOR_STATUS(&All_Motor.DJI_3508_Chassis[2].DATA);

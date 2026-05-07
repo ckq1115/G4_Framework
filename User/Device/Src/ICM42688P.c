@@ -56,33 +56,30 @@ static uint8_t ReadReg(uint16_t reg) {
 uint8_t ICM42688_Init(void) {
     uint8_t int_config1_val;
 
-    // 1. 切换到Bank 0，确保所有中断相关寄存器操作在正确Bank
+    // 切换到Bank 0，确保所有中断相关寄存器操作在正确Bank
     SelectBank(0);
 
-    // 2. software reset
+    // software reset
     WriteReg(REG_DEVICE_CONFIG, 0x01);
     vTaskDelay(pdMS_TO_TICKS(100));
 
-    // 3. ID check
+    // ID check
     if (ReadReg(REG_WHO_AM_I) != ICM_WHO_AM_I_VAL) return 1;
 
-    // 4. 中断核心配置（四步缺一不可）
-    // 4.1 配置中断引脚属性：INT1=锁存、推挽、低有效
+    // 配置中断引脚属性：INT1=锁存、推挽、低有效
     WriteReg(REG_INT_CONFIG, 0x02);
-    // 4.2 关键：修正INT_ASYNC_RESET（BIT4清零，其余位保留默认）
+
     int_config1_val = ReadReg(REG_INT_CONFIG1); // 先读当前值
     int_config1_val &= ~(1 << 4); // 仅将BIT4（INT_ASYNC_RESET）置0
     WriteReg(REG_INT_CONFIG1, int_config1_val);
-    // 4.3 映射中断源：DRDY中断映射到INT1引脚
+    // 映射中断源：DRDY中断映射到INT1引脚
     WriteReg(REG_INT_SOURCE0, 0x08);
-    // 4.4 使能中断事件：开启DRDY（数据就绪）中断
+    // 使能中断事件：开启DRDY（数据就绪）中断
     WriteReg(REG_INT_ENABLE0, 0x08);
-
-    // 5. power management
+    // power management
     WriteReg(REG_PWR_MGMT0, 0x0F);
     vTaskDelay(pdMS_TO_TICKS(50));
-
-    // 6. default ODR/FSR
+    // default ODR/FSR
     ICM42688_SetFormat(ODR_1kHz, ACCEL_FS_16G, ODR_1kHz, GYRO_FS_2000DPS);
 
     ICM42688_Config_AAF(1, 7, 49, 9);
@@ -92,8 +89,6 @@ uint8_t ICM42688_Init(void) {
     ICM42688_Config_Gyro_Notch_Filter(1, 219.0f, GYRO_NF_BW_10HZ);
     ICM42688_Config_Gyro_Notch_Filter(1, 328.0f, GYRO_NF_BW_10HZ);
     SelectBank(0);
-
-
 
     return 0;
 }

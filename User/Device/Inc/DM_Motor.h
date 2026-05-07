@@ -25,7 +25,6 @@
 #define T_MIN   -10.0f
 #define T_MAX    10.0f
 
-// --- 原始结构体完全保留 ---
 typedef struct {
     int id;
     int state;
@@ -62,7 +61,6 @@ typedef struct {
     uint16_t initialAngle;
     float ralativeAngle;
     int16_t round;
-    int32_t reality;
 } DM_MOTOR_DATA_Typdef;
 
 typedef struct {
