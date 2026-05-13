@@ -31,7 +31,7 @@ uint8_t Chassis_Control_Init(MOTOR_Typdef *MOTOR)
     float PID_Vw_Param[3] = {2.0f, 0.0f, 0.0f};
     PID_Init(&PID_Vw, 8.0f, 8.0f, PID_Vw_Param, 0, 0, 0, 0, 0, Integral_Limit | ErrorHandle);
 
-    float PID_6020_Pos[3] = {600.0f, 0.01f, 0.0f}; // 6020 位置环参数
+    float PID_6020_Pos[3] = {1000.0f, 0.01f, 0.0f}; // 6020 位置环参数
     float PID_6020_Spd[3] = {80.0f, 0.01f, 0.0f}; // 6020 速度环参数
     float PID_3508_Spd[3] = {5.0f, 0.1f, 0.0f}; // 3508 速度环参数
 
@@ -95,7 +95,7 @@ void Chassis_Control_Task(MOTOR_Typdef *MOTOR) {
         chassis_power_control(&contal,&User_data,&chassis_model,&cap,&All_Motor);
     }
 
-    if (DBUS.DBUS_ONLINE_JUDGE_TIME >= 6) {
+    if (DBUS.ONLINE_JUDGE_TIME >= 6) {
         DJI_Motor_Send(&hfdcan1, 0x200,
                        MOTOR->DJI_3508_Chassis[0].PID_S.Output,
                        MOTOR->DJI_3508_Chassis[1].PID_S.Output,

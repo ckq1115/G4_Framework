@@ -4,8 +4,6 @@
 #include "All_Task.h"
 #include <stdio.h>
 
-#include "CAN_Comm.h"
-
 CCM_FUNC void MY_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
         if (htim->Instance == TIM4) {
             System_Root(&ROOT_Status, &DBUS, &All_Motor, NULL);
@@ -108,15 +106,17 @@ void Test_Task(void *argument)
     };
     UI_Init(&h_ui, &ui_cfg);
     Motor_Mode(&hfdcan2,0x01,0x300,0xfc);
+    Shoot_Control_Init();
     for(;;)
     {
         h_ui.yaw = IMU_Data.yaw;
         h_ui.pitch = IMU_Data.pitch;
         h_ui.cap = IMU_Data.roll;
         UI_OnLoop(&h_ui);
-        UI_SendUartCmd(&h_ui);
-        Ctrl_Test_Task();
-        Test_Tx();
+        //UI_SendUartCmd(&h_ui);
+        //Ctrl_Test_Task();
+        Ctrl_Shoot_Task();
+        //Test_Tx();
         osDelay(1);
     }
 }
@@ -127,11 +127,13 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size){
     if (huart->Instance == USART3){
         if (Size == 18){
             DBUS_Resolved(DBUS_RX_DATA, &DBUS, &DBUS_UNION);
+            __HAL_DMA_DISABLE_IT(huart3.hdmarx, DMA_IT_HT);
         }
     }
     if (huart->Instance == UART5){
         if (Size == 21){
             VT13_Resolved(VT13_RX_DATA, &VT13);
+            __HAL_DMA_DISABLE_IT(huart5.hdmarx, DMA_IT_HT);
         }
     }
     if (huart->Instance == USART1){
@@ -298,7 +300,7 @@ CCM_FUNC void HAL_FDCAN_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t Rx
                     CAN_POWER_Rx(&All_Power.P_Chassis, data);
                     Buffer_Calc(&All_Power.P_Chassis, &User_data);
                     break;
-                case 0x201:
+                case 0x203:
                     DJI_Motor_Resolve(&All_Motor.DJI_2006_bo, data);
                     break;
                 case 0x500:

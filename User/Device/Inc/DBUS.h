@@ -122,7 +122,6 @@ typedef struct
         uint8_t V_PreeNumber : 1;
         uint8_t B_PreeNumber : 1;
     } KeyBoard;
-    uint8_t DBUS_ONLINE_JUDGE_TIME;
 }DBUS_Typedef;
 
 

@@ -13,7 +13,7 @@
 #include "ICM42688P.h"
 #include "tim.h"
 #include "usart.h"
-#include "WS2812.h"
+#include "TIM_PWM.h"
 #include "controller.h"
 #include "QuaternionEKF.h"
 #include "Vofa.h"
@@ -36,6 +36,7 @@
 #include "Chassis_Task.h"
 #include "Test_Task.h"
 #include "CAN_Comm.h"
+#include "Shoot_Task.h"
 
 extern uint8_t DBUS_RX_DATA[18];
 extern DBUS_Typedef DBUS;

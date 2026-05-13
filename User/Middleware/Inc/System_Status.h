@@ -47,7 +47,5 @@ void System_Root(ROOT_STATUS_Typedef *Root, DBUS_Typedef *DBUS, MOTOR_Typdef *MO
 //总的状态监测
 void All_Status(ROOT_STATUS_Typedef *Root, DBUS_Typedef *DBUS, MOTOR_Typdef *MOTOR, Cap_t *CAP_GET);
 void LED_Show_Status(ROOT_STATUS_Typedef *Root);
-void Buzzer_UpdateCycle(float activeTime, float period, uint16_t maxVolume);
-void Buzzer_Start();
-void Buzzer_Stop();
+
 #endif //FDCAN_TEST_G4_SYSTEM_STATUS_H

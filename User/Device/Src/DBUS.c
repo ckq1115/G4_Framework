@@ -23,7 +23,7 @@
  ************************************************************万能分隔符**************************************************************/
 void DBUS_Resolved(uint8_t* Data, DBUS_Typedef *DBUS,    DBUS_UNION_Typdef *DBUS_UNION)
 {
-    DBUS->DBUS_ONLINE_JUDGE_TIME = DBUS_OFFLINE_TIME;
+    DBUS->ONLINE_JUDGE_TIME = DBUS_OFFLINE_TIME;
 
     static uint8_t Key_Q_Lock = 0; // 0是开锁，1是上锁
     static uint8_t Key_E_Lock = 0;

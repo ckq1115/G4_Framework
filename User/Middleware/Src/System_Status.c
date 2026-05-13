@@ -8,7 +8,7 @@
 #include "All_define.h"
 #include "All_Init.h"
 #include "tim.h"
-#include "WS2812.h"
+#include "TIM_PWM.h"
 
 void System_Root(ROOT_STATUS_Typedef *Root, DBUS_Typedef *DBUS, MOTOR_Typdef *MOTOR, Cap_t *CAP_GET)
 {
@@ -59,16 +59,16 @@ uint8_t DM_MOTOR_STATUS(DM_MOTOR_DATA_Typdef* DATA)
 
 void All_Status(ROOT_STATUS_Typedef *Root, DBUS_Typedef *DBUS, MOTOR_Typdef *MOTOR, Cap_t *CAP_GET)
 {
-    if (DBUS->DBUS_ONLINE_JUDGE_TIME < 5)
+    if (DBUS->ONLINE_JUDGE_TIME < 5)
     {
-        DBUS->DBUS_ONLINE_JUDGE_TIME = 3;
+        DBUS->ONLINE_JUDGE_TIME = 3;
         Root->RM_DBUS = DEVICE_OFFLINE;
     }
     else
     {
         Root->RM_DBUS = DEVICE_ONLINE;
     }
-    DBUS->DBUS_ONLINE_JUDGE_TIME--;
+    DBUS->ONLINE_JUDGE_TIME--;
 
     //电容在线监测
     if(CAP_GET->get.ONLINE_JUDGE_TIME < 5)
@@ -105,7 +105,7 @@ void LED_Show_Status(ROOT_STATUS_Typedef *Root)
     WS2812_UpdateBreathing(3, dbus->breathe);
 
     (imu_ctrl_state == ERROR_STATE) ? WS2812_UpdateBreathing(0, 0.2f) : WS2812_UpdateBreathing(0, 2.0f);
-    if (motor->buzzer && dbus->buzzer) {
+    /*if (motor->buzzer && dbus->buzzer) {
         Buzzer_UpdateCycle(0.25f, 0.5f, 20);
     }
     else if (dbus->buzzer || motor->buzzer) {
@@ -113,46 +113,6 @@ void LED_Show_Status(ROOT_STATUS_Typedef *Root)
     }
     else {
         Buzzer_Stop();
-    }
+    }*/
     WS2812_Send();
-}
-
-/**
- * @brief  非阻塞式蜂鸣器周期控制函数
- * @param  activeTime : 一个周期内响的时间 (秒)
- * @param  period     : 整个周期的总时间 (秒)
- * @param  maxVolume  : 目标响度 (PWM 占空比数值，通常对应 CCR 寄存器值)
- */
-void Buzzer_UpdateCycle(float activeTime, float period, uint16_t maxVolume) {
-    if (period <= 0.0f || activeTime <= 0.0f) {
-        __HAL_TIM_SET_COMPARE(&htim20, TIM_CHANNEL_2, 0);
-        return;
-    }
-
-    // 1. 获取当前高精度时间
-    float currentTime = DWT_GetTimeline_s();
-
-    // 2. 计算当前时间在周期内的位置 (取模运算)
-    // fmodf 用于对浮点数取余，得到当前处于周期的第几秒
-    float phase = fmodf(currentTime, period);
-
-    // 3. 判断当前处于“响”还是“灭”的状态
-    uint16_t currentCCR = 0;
-    if (phase < activeTime) {
-        // 处于“响”的时间段内
-        currentCCR = maxVolume;
-    } else {
-        // 处于“灭”的时间段内
-        currentCCR = 0;
-    }
-
-    // 4. 更新硬件 PWM 寄存器
-    __HAL_TIM_SET_COMPARE(&htim20, TIM_CHANNEL_2, currentCCR);
-}
-
-void Buzzer_Start() {
-    HAL_TIM_Base_Start_IT(&htim20);
-}
-void Buzzer_Stop() {
-    __HAL_TIM_SET_COMPARE(&htim20, TIM_CHANNEL_2, 0);
 }

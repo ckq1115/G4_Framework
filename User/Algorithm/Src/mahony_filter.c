@@ -154,6 +154,11 @@ CCM_FUNC void mahony_update(struct MAHONY_FILTER_t *f,
     RotationMatrix_update(f);
 }
 
+/**
+ * @brief 从旋转矩阵解算并输出姿态角（俯仰/横滚/偏航）
+ * @param f 指向MAHONY_FILTER_t结构体的指针，存储旋转矩阵和姿态角结果
+ * @return void
+ */
 CCM_FUNC void mahony_output(struct MAHONY_FILTER_t *f) {
     float r20 = f->rMat[2][0];
     if (r20 > 1.0f) r20 = 1.0f;
@@ -173,12 +178,8 @@ CCM_FUNC void mahony_output(struct MAHONY_FILTER_t *f) {
     f->YawTotalAngle += yaw_diff;
     f->last_yaw = f->yaw;
 }
-/*/**
- * @brief 从旋转矩阵解算并输出姿态角（俯仰/横滚/偏航）
- * @param f 指向MAHONY_FILTER_t结构体的指针，存储旋转矩阵和姿态角结果
- * @return void
- #1#
-void mahony_output(struct MAHONY_FILTER_t *f) {
+
+/*void mahony_output(struct MAHONY_FILTER_t *f) {
     f->pitch = -asinf(f->rMat[2][0]) * RAD2DEG;
     f->roll  = atan2f(f->rMat[2][1], f->rMat[2][2]) * RAD2DEG;
     f->yaw   = atan2f(f->rMat[1][0], f->rMat[0][0]) * RAD2DEG;

@@ -52,9 +52,6 @@ typedef struct {
     int64_t Stuck_Time;
     uint16_t Stuck_Flag[2];
     int16_t Laps;
-    float Error;
-    float Aim;
-    float Aim_last;
     float dt;
 
     int8_t ONLINE_JUDGE_TIME;
@@ -64,7 +61,6 @@ typedef struct {
 } DM_MOTOR_DATA_Typdef;
 
 typedef struct {
-    uint8_t PID_INIT;
     DM_MOTOR_DATA_Typdef DATA;
     Feedforward_t PID_F;
     PID_t PID_P;

@@ -3,6 +3,7 @@
 //
 #include "DJI_Motor.h"
 #include "All_define.h"
+#include "TIM_PWM.h"
 
 /**
  * @brief DJI 电机协议解析内核 (3508/2006/6020 通用)
@@ -26,27 +27,10 @@ void DJI_Motor_Resolve(void* instance, uint8_t* rx_data) {
     // 圈数异常保护
     if (DATA->Laps > 32500 || DATA->Laps < -32500) {
         DATA->Laps = 0;
-        DATA->Aim  = DATA->Angle_now;
     }
 
     DATA->ONLINE_JUDGE_TIME = MOTOR_OFFLINE_TIME;
     DATA->Angle_Infinite = (int32_t)((DATA->Laps << 13) + DATA->Angle_now);
-}
-
-/************************************************************万能分隔符**************************************************************
- *	@performance:	    //电机清空函数
- *	@parameter:		    //
- *	@time:				//23-04-13 19:23
- *	@ReadMe:			//
- *  @LastUpDataTime:    //2023-05-07 17:06    bestrui
- *  @UpData：           //不太好描述
- ************************************************************万能分隔符**************************************************************/
-void HEAD_MOTOR_CLEAR(DJI_MOTOR_Typedef* MOTOR , uint8_t mode)
-{
-    MOTOR->PID_P.Iout  = 0.0f;
-    MOTOR->PID_S.Iout  = 0.0f;
-    MOTOR->DATA.Aim    = (float)MOTOR->DATA.Angle_Infinite;
-    if (mode)       MOTOR->DATA.Laps = 0;
 }
 
 /**
@@ -62,19 +46,53 @@ void DJI_Motor_Send(FDCAN_HandleTypeDef* hcan, uint32_t stdid, int16_t n1, int16
     FDCAN_Send_Msg(hcan, stdid, data, 8);
 }
 
+
+void DJI_Motor_Clear(DJI_MOTOR_Typedef* motor) {
+    motor->PID_S.Output = 0.0;
+    motor->PID_S.Iout = 0.0;
+}
 /**
- * @brief 电机堵转检测
+ * @brief 电机堵转检测与自动恢复
+ * @param motor 电机结构体
+ * @param current_limit 触发堵转的最小电流阈值
+ * @param speed_limit   判定为停止的最高速度阈值
+ * @param time_limit    判断堵转的持续时间 (ms)
+ * @param recovery_limit 堵转后停止运行的持续时间 (ms)
  */
-void DJI_Motor_Stuck_Check(DJI_MOTOR_Typedef* motor, float angle_err, float speed_limit, uint16_t time_limit) {
-    // 逻辑：误差大 且 速度小
-    if (MATH_ABS_float(motor->PID_P.Err) > angle_err && MATH_ABS_float(motor->DATA.Speed_now) < speed_limit) {
+void DJI_Motor_Stuck_Check(DJI_MOTOR_Typedef* motor, float current_limit, float speed_limit, uint16_t time_limit, uint16_t recovery_limit) {
+
+    if (motor->DATA.Recovery_Count > 0) {
+        motor->DATA.Recovery_Count--;
+
+        DJI_Motor_Clear(motor);
+
+        if (motor->DATA.Recovery_Count == 0) {
+            Buzzer_Stop(); // 停止蜂鸣器报警
+        }
+        return; // 恢复期内不进行常规堵转检测
+    }
+
+    // --- 逻辑 2：常规堵转检测 ---
+    float current_feedback = motor->DATA.current;
+
+    if (MATH_ABS_float(current_feedback) > current_limit && MATH_ABS_float(motor->DATA.Speed_now) < speed_limit) {
         motor->DATA.Stuck_Time++;
+
         if (motor->DATA.Stuck_Time > time_limit) {
-            HEAD_MOTOR_CLEAR(motor, 0);
+            // 【触发保护】
             motor->DATA.Stuck_Time = 0;
             motor->DATA.Stuck_Flag[0]++;
+
+            // 进入锁定恢复模式
+            motor->DATA.Recovery_Count = recovery_limit;
+
+            //DJI_Motor_Clear(motor);
+            motor->DATA.Stuck_Flag[1] = 1;
+            // 报警提示
+            Buzzer_Run();
         }
     } else {
+        // 如果电机还在动，重置检测计数
         motor->DATA.Stuck_Time = 0;
     }
 }

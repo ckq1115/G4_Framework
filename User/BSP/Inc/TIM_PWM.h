@@ -32,4 +32,8 @@ void WS2812_Send(void);
 void WS2812_UpdateBreathing(uint16_t index, float period);
 void WS2812_RainbowCycle(uint8_t speed);
 
+void Buzzer_UpdateCycle(float activeTime, float period, uint16_t maxVolume);
+void Buzzer_Start();
+void Buzzer_Stop();
+void Buzzer_Run();
 #endif //G4_FRAMEWORK_WS2812_H

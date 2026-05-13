@@ -149,15 +149,20 @@ uint8_t Swerve_Init(Swerve_Cfg_t *cfg, Swerve_State_t *state) {
     cfg->gear_d = 15.76f;
 
 
-    cfg->Swerve_offset[0] = (float)(-9.0f * 2*PI / 360.0f);
+    /*cfg->Swerve_offset[0] = (float)(-9.0f * 2*PI / 360.0f);
     cfg->Swerve_offset[1] = (float)(85.0f * 2*PI / 360.0f);
     cfg->Swerve_offset[2] = (float)(94.5f * 2*PI / 360.0f);
-    cfg->Swerve_offset[3] = (float)(127.0f * 2*PI / 360.0f);
+    cfg->Swerve_offset[3] = (float)(127.0f * 2*PI / 360.0f);*/
 
-    cfg->drive_dir[0] = 1;  cfg->drive_dir[1] = -1;
+    cfg->Swerve_offset[0] = (float)(148.5f * 2*PI / 360.0f);
+    cfg->Swerve_offset[1] = (float)(-28.0f * 2*PI / 360.0f);
+    cfg->Swerve_offset[2] = (float)(155.0f * 2*PI / 360.0f);
+    cfg->Swerve_offset[3] = (float)(146.5f * 2*PI / 360.0f);
+
+    cfg->drive_dir[0] = -1;  cfg->drive_dir[1] = 1;
     cfg->drive_dir[2] = 1;  cfg->drive_dir[3] = -1;
 
-    cfg->phi[0] = 0.25f * PI;  cfg->phi[1] = 0.75f * PI;
+    cfg->phi[0] = 0.75f * PI;  cfg->phi[1] = 0.25f * PI;
     cfg->phi[2] = 1.25f * PI;  cfg->phi[3] = 1.75f * PI;
 
     if (state != NULL) {
@@ -236,71 +241,5 @@ void Swerve_Inverse_Calc(float *ff_out, MOTOR_Typdef *motor,
         float F_drive = F_ix * cosf(current_theta_chassis) + F_iy * sinf(current_theta_chassis);
         state->wheel[i].ff_out = speed_dir * (F_drive * cfg->r) * M3508_NM_TO_RAW * cfg->drive_dir[i];
         ff_out[i] = state->wheel[i].ff_out;
-    }
-}
-
-/**
- * @brief 舵轮纯力控分配 (Force Allocation)
- * @param Fx 底盘期望X向推力 (N)
- * @param Fy 底盘期望Y向推力 (N)
- * @param Mz 底盘期望Z向旋转力矩 (N·m)
- * @param motor 电机数据
- * @param cfg 舵轮配置
- * @param state 舵轮状态
- * @param out_torque 输出给3508的原始电流值数组
- */
-void Swerve_Force_Allocation(float Fx, float Fy, float Mz,
-                             MOTOR_Typdef *motor, Swerve_Cfg_t *cfg, Swerve_State_t *state,
-                             float *out_torque)
-{
-    for (int i = 0; i < 4; i++) {
-        // 1. 将底盘合力/力矩分配到每个轮子的期望力矢量 (世界坐标系)
-        // 平移力平分给4个轮子；旋转力矩转化为沿轮子所在圆周的切向力
-        float F_ix = (Fx / 4.0f) - cfg->drive_dir[i] * (Mz / (4.0f * cfg->R)) * sinf(cfg->phi[i]);
-        float F_iy = (Fy / 4.0f) + cfg->drive_dir[i] * (Mz / (4.0f * cfg->R)) * cosf(cfg->phi[i]);
-
-        // 期望力的大小
-        float F_mag = sqrtf(F_ix * F_ix + F_iy * F_iy);
-
-        // 当前轮子的实际朝向
-        float current_theta_motor = motor->DJI_6020_Steer[i].DATA.Angle_Infinite * ENCODER_TO_RAD;
-        float current_theta_chassis = current_theta_motor - cfg->Swerve_offset[i];
-
-        // 2. 计算目标舵向角度
-        float target_theta_raw;
-        if (F_mag < 0.05f) { // 死区：如果期望力非常小，保持当前角度，避免舵轮乱转
-            target_theta_raw = current_theta_chassis;
-        } else {
-            target_theta_raw = atan2f(F_iy, F_ix);
-        }
-
-        // 3. 优弧劣弧与反转处理 (让舵轮转动角度最小)
-        float diff = target_theta_raw - fmodf(current_theta_chassis, 2.0f * PI);
-        while (diff >  PI) diff -= 2.0f * PI;
-        while (diff < -PI) diff += 2.0f * PI;
-
-        float force_dir = 1.0f;
-        if (fabsf(diff) > PI / 2.0f) { // 需要转动的角度超过90度，则角度反向，驱动力反向
-            diff = (diff > 0) ? diff - PI : diff + PI;
-            force_dir = -1.0f;
-        }
-
-        // 更新给6020的位置环目标
-        motor->DJI_6020_Steer[i].PID_P.Ref = current_theta_motor + diff;
-        state->wheel[i].theta_target = current_theta_chassis + diff;
-
-        // 4. 计算实际下发的驱动力 (核心细节：力投影)
-        // 由于舵轮转向需要时间，不能瞬间转到期望角度。
-        // 如果直接下发 F_mag 的力，在没转到位时会产生错误的侧向分力。
-        // 所以我们将“期望力矢量”投影到“当前轮子实际朝向”上。
-        float current_dir_x = cosf(current_theta_chassis);
-        float current_dir_y = sinf(current_theta_chassis);
-
-        // 向量点乘投影 F_actual = F_target · dir_current
-        float F_drive_actual = (F_ix * current_dir_x + F_iy * current_dir_y) * force_dir;
-
-        // 5. 将受力 (N) 转换为 3508的原始电流值
-        // F(力) -> T(扭矩, F*r) -> Raw(减速比和电机常数转换)
-        out_torque[i] = F_drive_actual * cfg->r * M3508_NM_TO_RAW * cfg->drive_dir[i];
     }
 }

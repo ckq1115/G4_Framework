@@ -177,7 +177,7 @@ CCM_FUNC void IMU_Update_Task(float dt_s)
 
         case FUSION_RUN:
             WS2812_SetPixel(0, 0, 60, 40);    // 绿色：正常运行
-            //HAL_TIM_PWM_Start(&htim20, TIM_CHANNEL_2);// 陀螺仪零漂收集结束后开启蜂鸣器
+            HAL_TIM_PWM_Start(&htim20, TIM_CHANNEL_2);// 陀螺仪零漂收集结束后开启蜂鸣器
             const float AXIS_DIR[3] = {1.0f, -1.0f, -1.0f};// 根据安装方向调整轴向，确保输出符合右手坐标系
             for (int i = 0; i < 3; i++) {
                 IMU_Data.gyro[i] = (IMU_Data.gyro[i] - IMU_Data.gyro_correct[i]) * AXIS_DIR[i];
@@ -191,6 +191,10 @@ CCM_FUNC void IMU_Update_Task(float dt_s)
             IMU_Data.gyro[0], IMU_Data.gyro[1], IMU_Data.gyro[2],
             IMU_Data.accel[0], IMU_Data.accel[1], IMU_Data.accel[2],dt_s);
             mahony_output(&mahony_filter);
+            IMU_Data.q[0] = mahony_filter.q0;
+            IMU_Data.q[1] = mahony_filter.q1;
+            IMU_Data.q[2] = mahony_filter.q2;
+            IMU_Data.q[3] = mahony_filter.q3;
             IMU_Data.pitch = mahony_filter.pitch;
             IMU_Data.roll = mahony_filter.roll;
             IMU_Data.yaw = mahony_filter.yaw;

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "ui_types.h"
+
 extern ui_interface_line_t* ui_g_00_line0;
 extern ui_interface_line_t* ui_g_00_line1;
 extern ui_interface_line_t* ui_g_00_line2;

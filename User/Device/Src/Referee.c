@@ -139,3 +139,46 @@ static void Referee_System_Info_Update(uint16_t cmd_id, uint8_t *data_ptr, User_
             break;
     }
 }
+
+
+static uint8_t referee_tx_seq = 0;
+
+/**
+  * @brief  裁判系统通用发送函数
+  * @param  cmd_id: 命令码 (如 0x0306)
+  * @param  p_data: 负载数据指针
+  * @param  len: 负载数据长度
+  */
+void Referee_Send_Data(uint16_t cmd_id, uint8_t *p_data, uint16_t len)
+{
+    static uint8_t tx_buf[REFEREE_RXFRAME_LENGTH]; // 发送缓冲区
+    uint16_t frame_length = FrameHeader_Length + CMDID_Length + len + CRC16_Length;
+
+    // 1. 填充帧头 (Frame Header)
+    tx_buf[0] = 0xA5;                                  // SOF
+    tx_buf[1] = (uint8_t)(len & 0x00FF);               // Data Length LSB
+    tx_buf[2] = (uint8_t)((len >> 8) & 0x00FF);        // Data Length MSB
+    tx_buf[3] = referee_tx_seq++;                      // Seq
+    Append_CRC8_Check_Sum(tx_buf, FrameHeader_Length); // 计算并添加 CRC8
+
+    // 2. 填充命令码 (CMD ID)
+    tx_buf[5] = (uint8_t)(cmd_id & 0x00FF);
+    tx_buf[6] = (uint8_t)((cmd_id >> 8) & 0x00FF);
+
+    // 3. 填充负载数据 (Data)
+    memcpy(&tx_buf[7], p_data, len);
+
+    // 4. 计算整帧 CRC16
+    Append_CRC16_Check_Sum(tx_buf, frame_length);
+
+    // 5. 通过串口发送 (请根据你的串口句柄修改，例如 &huart1)
+    HAL_UART_Transmit(&huart1, tx_buf, frame_length, HAL_MAX_DELAY);
+}
+
+/**
+  * @brief  快捷发送键鼠控制指令 (CMD 0x0306)
+  */
+void Referee_Send_KeyMouse(custom_client_data_t *control_data)
+{
+    Referee_Send_Data(Custom_controller_to_map, (uint8_t *)control_data, sizeof(custom_client_data_t));
+}
