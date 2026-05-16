@@ -190,55 +190,59 @@ inline float CORDIC_Atan2_Fast(float y, float x) {
 }
 
 /**
- * @brief CORDIC Sin 快速函数 (输入角度为度)
+ * @brief CORDIC 单独算 Sin (输入角度为度 °)
  */
 inline float CORDIC_Sin_Fast(float angle_deg) {
-    // 角度度数 -> Q1.31 (假设 pi 对应 2^31)
-    const float deg_to_q31 = 2147483648.0f / 180.0f;
-    int32_t arg = (int32_t)(angle_deg * deg_to_q31);
+    // 1. 周期归一化：将角度映射到 [-180, 180] 范围内，防止过大角度导致硬件截断失效
+    if (angle_deg > 180.0f || angle_deg < -180.0f) {
+        angle_deg = fmodf(angle_deg + 180.0f, 360.0f);
+        if (angle_deg < 0.0f) angle_deg += 360.0f;
+        angle_deg -= 180.0f;
+    }
 
-    /* FUNC = 1 (Sin), PRECISION = 6 (24 cycles), NARG = 1, NRES = 1 */
-    CORDIC->CSR = (1 << CORDIC_CSR_FUNC_Pos) |
+    // 2. 转换为 CORDIC 的 q31 固定格式输入
+    int32_t arg = (int32_t)(angle_deg * (2147483648.0f / 180.0f));
+
+    /* 3. 配置 CORDIC 寄存器：FUNC = 1 (Sine), NRES = 0 (只读1个结果) */
+    CORDIC->CSR = (1 << CORDIC_CSR_FUNC_Pos)      |
                   (6 << CORDIC_CSR_PRECISION_Pos) |
-                  (0 << CORDIC_CSR_NARGS_Pos) |
+                  (0 << CORDIC_CSR_SCALE_Pos)     |
+                  (0 << CORDIC_CSR_NARGS_Pos)     |
                   (0 << CORDIC_CSR_NRES_Pos);
 
-    CORDIC->WDATA = arg; // 写入参数触发计算
-    int32_t res = CORDIC->RDATA;
+    // 4. 写入数据并触发计算
+    CORDIC->WDATA = arg;
 
-    // Q1.31 -> float [-1, 1)
-    return (float)res * (1.0f / 2147483648.0f);
+    // 5. 读取结果并将 q31 格式还原为 float
+    return (float)(int32_t)CORDIC->RDATA * (1.0f / 2147483648.0f);
 }
 
 /**
- * @brief CORDIC Cos 快速函数 (输入角度为度)
+ * @brief CORDIC 单独算 Cos (输入角度为度 °，支持任意大小角度)
  */
-inline float CORDIC_Cos_Fast(float angle_rad) {
-    // 1. 角度归一化系数
-    const float f_scale = 6.83565275e8f;
-    int32_t arg_angle = (int32_t)(angle_rad * f_scale);
+inline float CORDIC_Cos_Fast(float angle_deg) {
+    // 1. 周期归一化：将角度映射到 [-180, 180] 范围内，防止过大角度导致硬件截断失效
+    if (angle_deg > 180.0f || angle_deg < -180.0f) {
+        angle_deg = fmodf(angle_deg + 180.0f, 360.0f);
+        if (angle_deg < 0.0f) angle_deg += 360.0f;
+        angle_deg -= 180.0f;
+    }
 
-    /* 2. 配置寄存器
-       FUNC = 0 (Cosine)
-       PRECISION = 6
-       SCALE = 1 (开启缩放)
-       NARG = 0 (1个参数)
-       NRES = 1 (1个结果)
-    */
-    CORDIC->CSR = (0 << CORDIC_CSR_FUNC_Pos) |
+    // 2. 转换为 CORDIC 的 q31 固定格式输入
+    int32_t arg = (int32_t)(angle_deg * (2147483648.0f / 180.0f));
+
+    /* 3. 配置 CORDIC 寄存器：FUNC = 0 (Cosine), NRES = 0 (只读1个结果) */
+    CORDIC->CSR = (0 << CORDIC_CSR_FUNC_Pos)      |
                   (6 << CORDIC_CSR_PRECISION_Pos) |
-                  (1 << CORDIC_CSR_SCALE_Pos) |
-                  (0 << CORDIC_CSR_NARGS_Pos) |
+                  (0 << CORDIC_CSR_SCALE_Pos)     |
+                  (0 << CORDIC_CSR_NARGS_Pos)     |
                   (0 << CORDIC_CSR_NRES_Pos);
 
-    // 3. 写入参数
-    CORDIC->WDATA = arg_angle;
+    // 4. 写入数据并触发计算
+    CORDIC->WDATA = arg;
 
-    // 4. 读取结果
-    int32_t res = CORDIC->RDATA;
-
-    // 5. 转换回浮点
-    return (float)res * 4.65661289e-10f;
+    // 5. 读取结果并将 q31 格式还原为 float
+    return (float)(int32_t)CORDIC->RDATA * (1.0f / 2147483648.0f);
 }
 
 /**

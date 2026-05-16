@@ -71,8 +71,8 @@ void Chassis_Control_Task(MOTOR_Typdef *MOTOR) {
 
     // 逆解算：根据加速度和速度目标，计算各轮 Aim 角度、Aim 转速及驱动前馈
     float drive_ff[4];
-    Swerve_Inverse_Calc(drive_ff, MOTOR, PID_Vx.Output, PID_Vy.Output, PID_Vw.Output,
-                       vx_tar, vy_tar, vw_tar, &S_Cfg,&S_Now);
+    /*Swerve_Inverse_Calc(drive_ff, MOTOR, PID_Vx.Output, PID_Vy.Output, PID_Vw.Output,
+                       vx_tar, vy_tar, vw_tar, &S_Cfg,&S_Now);*/
     for (int i = 0; i < 4; i++) {
         // 6020舵向控制
         // 位置环：输入当前角度
@@ -95,7 +95,7 @@ void Chassis_Control_Task(MOTOR_Typdef *MOTOR) {
         chassis_power_control(&contal,&User_data,&chassis_model,&cap,&All_Motor);
     }
 
-    if (DBUS.ONLINE_JUDGE_TIME >= 6) {
+    if (DBUS.ONLINE_JUDGE_TIME >= 1) {
         DJI_Motor_Send(&hfdcan1, 0x200,
                        MOTOR->DJI_3508_Chassis[0].PID_S.Output,
                        MOTOR->DJI_3508_Chassis[1].PID_S.Output,

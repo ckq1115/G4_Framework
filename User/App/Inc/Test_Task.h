@@ -50,4 +50,17 @@ typedef struct __attribute__((packed)){
 }B2B_Rx_t;//双板通讯接收
 
 void Test_Tx(void);
+
+/*#include "main.h"
+
+// ----------- 硬件引脚配置（根据实际修改） -----------
+#define RS485_RE_DE_PORT       GPIOA
+#define RS485_RE_DE_PIN        GPIO_PIN_1
+
+// 485收发模式切换宏
+#define RS485_SET_TX_MODE()    HAL_GPIO_WritePin(RS485_RE_DE_PORT, RS485_RE_DE_PIN, GPIO_PIN_SET)
+#define RS485_SET_RX_MODE()    HAL_GPIO_WritePin(RS485_RE_DE_PORT, RS485_RE_DE_PIN, GPIO_PIN_RESET)
+
+// ----------- 函数声明 -----------
+float Thermocouple_Read_Temp(UART_HandleTypeDef *huart);*/
 #endif //G4_FRAMEWORK_TEST_TASK_H

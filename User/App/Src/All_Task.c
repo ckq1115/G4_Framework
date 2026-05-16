@@ -63,6 +63,7 @@ void IMU_Task(void *argument)
         //ICM42688_Read_Fast(IMU_Data.gyro, IMU_Data.accel,&IMU_Data.temp);
         ICM42688_ResolveRaw(icm_raw_cache, IMU_Data.gyro, IMU_Data.accel,&IMU_Data.temp);
         IMU_Update_Task(imu_period_s);
+        DWT_SysTimeUpdate();
     }
 }
 
@@ -93,6 +94,8 @@ void Motor_Task(void *argument)
     }
 }
 
+float current_temp = 0.0f;
+uint32_t last_tick = 0;
 
 void Test_Task(void *argument)
 {
@@ -114,9 +117,10 @@ void Test_Task(void *argument)
         h_ui.cap = IMU_Data.roll;
         UI_OnLoop(&h_ui);
         //UI_SendUartCmd(&h_ui);
-        //Ctrl_Test_Task();
-        Ctrl_Shoot_Task();
+        Ctrl_Test_Task();
+        //Ctrl_Shoot_Task();
         //Test_Tx();
+        //DM_Motor_Send(&hfdcan2,0x3FE,0,0,0,0);
         osDelay(1);
     }
 }
@@ -308,6 +312,9 @@ CCM_FUNC void HAL_FDCAN_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t Rx
                     break;
                 case 0x301:
                     DM_1to4_Resolve(&All_Motor.DM4310_Yaw, data);
+                    break;
+                case 0x302:
+                    DM_1to4_Resolve(&All_Motor.DM4310_Pitch, data);
                     break;
                 default:
                     break;

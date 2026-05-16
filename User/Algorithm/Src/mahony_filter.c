@@ -180,19 +180,22 @@ CCM_FUNC void mahony_output(struct MAHONY_FILTER_t *f) {
 }
 
 /*void mahony_output(struct MAHONY_FILTER_t *f) {
-    f->pitch = -asinf(f->rMat[2][0]) * RAD2DEG;
+float r20 = f->rMat[2][0];
+    if (r20 > 1.0f) r20 = 1.0f;
+    if (r20 < -1.0f) r20 = -1.0f;
+
+    float sqrt_val;
+    arm_sqrt_f32(1.0f - r20 * r20, &sqrt_val);
+    //使用CORDIC优化计算
+    f->pitch = -atan2f(r20, sqrt_val) * RAD2DEG;
     f->roll  = atan2f(f->rMat[2][1], f->rMat[2][2]) * RAD2DEG;
     f->yaw   = atan2f(f->rMat[1][0], f->rMat[0][0]) * RAD2DEG;
-    // 累积偏航角计算：当偏航角变化超过180度时，认为发生了跳变，进行累积修正
+
     float yaw_diff = f->yaw - f->last_yaw;
-    if (yaw_diff > 180.0f) {
-        yaw_diff -= 360.0f;
-    } else if (yaw_diff < -180.0f) {
-        yaw_diff += 360.0f;
-    }
-    // 累加到总偏航角
+    if (yaw_diff > 180.0f)  yaw_diff -= 360.0f;
+    else if (yaw_diff < -180.0f) yaw_diff += 360.0f;
+
     f->YawTotalAngle += yaw_diff;
-    // 更新上一次的偏航角，用于下一次计算
     f->last_yaw = f->yaw;
 }*/
 /**
@@ -227,6 +230,4 @@ void mahony_init(struct MAHONY_FILTER_t *f, float Kp, float Ki, float alpha,floa
 
     RotationMatrix_update(f);
     osDelay(1);
-    f->mahony_update = mahony_update;
-    f->mahony_output = mahony_output;
 }

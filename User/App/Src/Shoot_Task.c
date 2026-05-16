@@ -85,7 +85,7 @@ void Ctrl_Shoot_Task() {
         is_init = true;
     }
 
-    g_feeder.target_freq = MATH_Limit_float(20.0f, 0.0f, 5.0f - DBUS.Remote.Dial_int16/30);
+    g_feeder.target_freq = MATH_Limit_float(20.0f, 0.0f, 10.0f - DBUS.Remote.Dial_int16/30);
     uint32_t now = HAL_GetTick();
     float interval = 1000.0f / g_feeder.target_freq;
 

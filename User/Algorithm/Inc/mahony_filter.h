@@ -50,11 +50,6 @@ struct MAHONY_FILTER_t
     // 输出参数
     float pitch, roll, yaw;     // 俯仰/横滚/偏航角
     float last_yaw,YawTotalAngle;          // 累积偏航角
-    // 函数指针
-    void (*mahony_update)(struct MAHONY_FILTER_t *mahony_filter,
-                          float gx, float gy, float gz,
-                          float ax, float ay, float az,float dt);
-    void (*mahony_output)(struct MAHONY_FILTER_t *mahony_filter);
 };
 
 extern struct MAHONY_FILTER_t mahony_filter;

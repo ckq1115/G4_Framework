@@ -74,7 +74,7 @@ void MX_GPIO_Init(void)
   /*Configure GPIO pin : ICM_DRDY_PIN_Pin */
   GPIO_InitStruct.Pin = ICM_DRDY_PIN_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(ICM_DRDY_PIN_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PB12 */
