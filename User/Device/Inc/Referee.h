@@ -427,6 +427,7 @@ typedef struct __packed
 
 typedef struct __packed
 {
+    int8_t ONLINE_JUDGE_TIME;
     game_status_t game_status;                           /* 内部包含：0x0001 比赛状态数据段 */
     game_result_t game_result;                           /* 内部包含：0x0002 比赛结果数据段 */
     game_robot_HP_t game_robot_HP;                       /* 内部包含：0x0003 所有机器人实时血量数据段 */
@@ -481,7 +482,7 @@ typedef union
 
 } ALL_RX_Data_T;
 
-extern uint8_t Referee_Rx_Buf[2][REFEREE_RXFRAME_LENGTH];
+extern uint8_t Referee_Rx_Buf[REFEREE_RXFRAME_LENGTH];
 extern User_Data_T User_data;
 
 void Referee_System_Frame_Update(uint8_t *Buff, uint16_t Size);

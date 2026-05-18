@@ -19,7 +19,7 @@ ALL_POWER_RX All_Power = {0};
 CONTAL_Typedef contal;
 
 User_Data_T User_data;
-uint8_t Referee_Rx_Buf[2][REFEREE_RXFRAME_LENGTH];
+uint8_t Referee_Rx_Buf[REFEREE_RXFRAME_LENGTH];
 
 uint8_t rx_buffer[64];
 SpeedData_t current_data;
@@ -54,7 +54,7 @@ void All_Init() {
     __HAL_UART_CLEAR_FLAG(&huart1, UART_CLEAR_OREF | UART_CLEAR_FEF | UART_CLEAR_NEF | UART_CLEAR_PEF);
     volatile uint32_t tmp1 = huart1.Instance->RDR;
     (void)tmp1;
-    HAL_UARTEx_ReceiveToIdle_DMA(&huart1, Referee_Rx_Buf[0], REFEREE_RXFRAME_LENGTH);//裁判系统串口
+    HAL_UARTEx_ReceiveToIdle_DMA(&huart1, Referee_Rx_Buf, REFEREE_RXFRAME_LENGTH);//裁判系统串口
     __HAL_DMA_DISABLE_IT(huart1.hdmarx, DMA_IT_HT);//关闭 DMA 半传中断
 
     HAL_UART_DMAStop(&huart2);

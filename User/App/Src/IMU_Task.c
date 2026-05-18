@@ -121,10 +121,9 @@ CCM_FUNC void IMU_Update_Task(float dt_s)
     {
         case TEMP_INIT:
             IMU_Temp_Control_Init();
-            mahony_init(&mahony_filter, 5.0f, 0.01f, 0.9f,dt_s);
+            mahony_init(&mahony_filter, 2.0f, 0.01f, 0.9f,dt_s);
 #ifdef DEBUG_MODE
-            /*imu_ctrl_state = TEMP_PID_CTRL;*/
-            imu_ctrl_state = GYRO_CALIB;
+            imu_ctrl_state = TEMP_PID_CTRL;
 #endif
 #ifdef RELEASE_MODE
             imu_ctrl_state = GYRO_CALIB;
@@ -189,14 +188,14 @@ CCM_FUNC void IMU_Update_Task(float dt_s)
 
             //mahony姿态融合更新，实测效果还不错，QuaternionEKF有想法的自己整吧
             mahony_update(&mahony_filter,
-            IMU_Data.gyro[1], IMU_Data.gyro[2], -IMU_Data.gyro[0],
-            IMU_Data.accel[1], IMU_Data.accel[2], -IMU_Data.accel[0],dt_s);
+            IMU_Data.gyro[0], IMU_Data.gyro[1], IMU_Data.gyro[2],
+            IMU_Data.accel[0], IMU_Data.accel[1], IMU_Data.accel[2],dt_s);
             mahony_output(&mahony_filter);
             IMU_Data.q[0] = mahony_filter.q0;
             IMU_Data.q[1] = mahony_filter.q1;
             IMU_Data.q[2] = mahony_filter.q2;
             IMU_Data.q[3] = mahony_filter.q3;
-            IMU_Data.pitch = -mahony_filter.pitch;
+            IMU_Data.pitch = mahony_filter.pitch;
             IMU_Data.roll = mahony_filter.roll;
             IMU_Data.yaw = mahony_filter.yaw;
             IMU_Data.YawTotalAngle = mahony_filter.YawTotalAngle;

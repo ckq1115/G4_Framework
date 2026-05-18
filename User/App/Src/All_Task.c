@@ -80,16 +80,16 @@ void Motor_Task(void *argument)
     {
         Chassis_Control_Task(&All_Motor);
         //W25N01GV_ReadID(flash_id);// ID 应该是 EF AA 21
-        VOFA_justfloat(
-            All_Power.P_Chassis.power,
-            All_Motor.DJI_6020_Steer[0].DATA.Speed_now,
+        /*VOFA_justfloat(
+            IMU_Data.pitch,
+            All_Motor.DM4310_Pitch.DATA.tor/158.78f,
             All_Motor.DJI_6020_Steer[0].PID_S.Output,
             All_Motor.DJI_6020_Steer[1].DATA.Speed_now,
             All_Motor.DJI_6020_Steer[1].PID_S.Output,
             All_Motor.DJI_6020_Steer[2].DATA.Speed_now,
             All_Motor.DJI_6020_Steer[2].PID_S.Output,
             All_Motor.DM4310_Yaw.PID_P.Ref,
-            IMU_Data.YawTotalAngle,0);
+            IMU_Data.YawTotalAngle,0);*/
         osDelay(1);
     }
 }
@@ -117,17 +117,20 @@ void Test_Task(void *argument)
         h_ui.cap = IMU_Data.roll;
         UI_OnLoop(&h_ui);
         //UI_SendUartCmd(&h_ui);
-        Ctrl_Test_Task();
-        //Ctrl_Shoot_Task();
+        //Ctrl_Test_Task();
+        Ctrl_Shoot_Task();
         //Test_Tx();
-        //DM_Motor_Send(&hfdcan2,0x3FE,0,0,0,0);
+        if (HAL_GetTick() - last_tick >= 250) {
+            last_tick = HAL_GetTick();
+            current_temp = Thermocouple_Read_Temp(&huart2);
+        }
+        VOFA_justfloat(current_temp,0,0,0,0,0,0,0,0,0);
         osDelay(1);
     }
 }
 
 
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size){
-    uint8_t *pData = huart->pRxBuffPtr;
     if (huart->Instance == USART3){
         if (Size == 18){
             DBUS_Resolved(DBUS_RX_DATA, &DBUS, &DBUS_UNION);
@@ -141,10 +144,8 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size){
         }
     }
     if (huart->Instance == USART1){
-        uint8_t *next_buf = (pData == Referee_Rx_Buf[0]) ? Referee_Rx_Buf[1] : Referee_Rx_Buf[0];
-        HAL_UARTEx_ReceiveToIdle_DMA(huart, next_buf, REFEREE_RXFRAME_LENGTH);
+        Referee_System_Frame_Update(Referee_Rx_Buf,Size);
         __HAL_DMA_DISABLE_IT(huart1.hdmarx, DMA_IT_HT);//关闭 DMA 半传中断
-        Referee_System_Frame_Update(pData,Size);
     }
     if (huart->Instance == USART2) {
         if (Size >= sizeof(SpeedData_t))
@@ -316,6 +317,8 @@ CCM_FUNC void HAL_FDCAN_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t Rx
                 case 0x302:
                     DM_1to4_Resolve(&All_Motor.DM4310_Pitch, data);
                     break;
+                case 0x18:
+                    DM_Standard_Resolve(&All_Motor.DM4310_Pitch, data);
                 default:
                     break;
             }

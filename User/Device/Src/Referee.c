@@ -53,6 +53,7 @@ void Referee_System_Frame_Update(uint8_t *Buff, uint16_t Size)
 
 static void Referee_System_Info_Update(uint16_t cmd_id, uint8_t *data_ptr, User_Data_T *usr_data)
 {
+
     switch (cmd_id)
     {
         case game_state:
