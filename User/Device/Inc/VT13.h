@@ -1,6 +1,11 @@
-//
-// Created by CaoKangqi on 2026/3/21.
-//
+/**
+ * @file VT13.h
+ * @brief RoboMaster 裁判系统相机图传模块 VT13 协议解析头文件
+ * @version 1.0
+ * @date 2026-03-21
+ * @author CaoKangqi
+ * * @copyright Copyright (c) 2026
+ */
 
 #ifndef G4_FRAMEWORK_VT13_H
 #define G4_FRAMEWORK_VT13_H
@@ -9,81 +14,170 @@
 #include <stdint.h>
 #include <string.h>
 
+/**
+ * @brief 按键状态枚举
+ */
+typedef enum {
+    VT13_KEY_UP    = 0,
+    VT13_KEY_CLICK = 1,
+    VT13_KEY_PRESS = 2
+} VT13_KeyState_Env;
+
+/**
+ * @brief 应用层使用的解析结果结构体
+ */
 typedef struct {
-	int8_t ONLINE_JUDGE_TIME;
-	bool CRC_flag;             // CRC校验通过标志位
+    int8_t ONLINE_JUDGE_TIME;       /**< 裁判系统在线倒计时 */
+    int8_t Ctrl_Mode;               /**< 控制模式（键鼠/遥控） */
+    bool CRC_flag;                  /**< CRC校验通过标志位 */
 
-	// 遥控器数据
-	struct {
-		int16_t Channel[4];
-		uint8_t mode_sw:2;
-		uint8_t pause:1;
-		uint8_t fn_1:1;
-		uint8_t fn_2:1;
-		int16_t wheel;
-		uint8_t trigger:1;
-	} Remote;
+    /**
+     * @brief 遥控器数据解算值
+     */
+    struct {
+       int16_t Channel[4];          /**< 通道 0~3 归一化数据 (-1024 ~ 1024) */
+       uint8_t mode_sw;             /**< 挡位开关 */
+       uint8_t pause;               /**< 暂停键 */
+       uint8_t fn_1;                /**< 自定义左键 */
+       uint8_t fn_2;                /**< 自定义右键 */
+       int16_t wheel;               /**< 拨轮归一化数据 (-1024 ~ 1024) */
+       uint8_t trigger;             /**< 扳机键 */
+    } Remote;
 
-	// 鼠标数据
-	struct {
-		float X_Flt;
-		float Y_Flt;
-		float Z_Flt;
-		uint8_t R_State : 4;
-		uint8_t L_State : 4;
-		uint8_t M_State : 4;
-		uint32_t R_PressTime;
-		uint32_t L_PressTime;
-		uint32_t M_PressTime;
-	} Mouse;
+    /**
+     * @brief 鼠标处理后的数据
+     */
+    struct {
+       float X_Flt;                 /**< 滤波及死区后的 X 轴移动速度 */
+       float Y_Flt;                 /**< 滤波及死区后的 Y 轴移动速度 */
+       float Z_Flt;                 /**< 滤波及死区后的 Z 轴滚动速度 */
+       uint8_t R_State;             /**< 右键状态 (点击/长按/释放) */
+       uint8_t L_State;             /**< 左键状态 (点击/长按/释放) */
+       uint8_t M_State;             /**< 中键状态 (点击/长按/释放) */
+       uint32_t R_PressTime;        /**< 右键按下计时 */
+       uint32_t L_PressTime;        /**< 左键按下计时 */
+       uint32_t M_PressTime;        /**< 中键按下计时 */
+    } Mouse;
 
-	// 键盘数据
-	struct {
-		uint8_t W : 4;
-		uint8_t S : 4;
-		uint8_t A : 4;
-		uint8_t D : 4;
-		uint8_t Shift : 4;
-		uint8_t Ctrl : 4;
-		uint8_t Q : 4;
-		uint8_t E : 4;
-		uint8_t R : 4;
-		uint8_t F : 4;
-		uint8_t G : 4;
-		uint8_t Z : 4;
-		uint8_t X : 4;
-		uint8_t C : 4;
-		uint8_t V : 4;
-		uint8_t B : 4;
-		uint8_t W_PressTime;
-		uint8_t S_PressTime;
-		uint8_t A_PressTime;
-		uint8_t D_PressTime;
-		// 记录按键切换状态的标志位
-		uint8_t Shift_PreeNumber;
-		uint8_t Ctrl_PreeNumber;
-		uint8_t Q_PreeNumber;
-		uint8_t E_PreeNumber;
-		uint8_t R_PreeNumber;
-		uint8_t F_PreeNumber;
-		uint8_t G_PreeNumber;
-		uint8_t Z_PreeNumber;
-		uint8_t X_PreeNumber;
-		uint8_t C_PreeNumber;
-		uint8_t V_PreeNumber;
-		uint8_t B_PreeNumber;
-	} KeyBoard;
+    /**
+     * @brief 键盘处理后的数据
+     */
+    struct {
+       uint8_t W;                   /**< W 键复合状态 */
+       uint8_t S;                   /**< S 键复合状态 */
+       uint8_t A;                   /**< A 键复合状态 */
+       uint8_t D;                   /**< D 键复合状态 */
+       uint8_t Shift;               /**< Shift 键当前物理状态 */
+       uint8_t Ctrl;                /**< Ctrl 键当前物理状态 */
+       uint8_t Q;                   /**< Q 键当前物理状态 */
+       uint8_t E;                   /**< E 键当前物理状态 */
+       uint8_t R;                   /**< R 键当前物理状态 */
+       uint8_t F;                   /**< F 键当前物理状态 */
+       uint8_t G;                   /**< G 键当前物理状态 */
+       uint8_t Z;                   /**< Z 键当前物理状态 */
+       uint8_t X;                   /**< X 键当前物理状态 */
+       uint8_t C;                   /**< C 键当前物理状态 */
+       uint8_t V;                   /**< V 键当前物理状态 */
+       uint8_t B;                   /**< B 键当前物理状态 */
 
-	uint8_t VT13_ONLINE_JUDGE_TIME;
+       uint8_t W_PressTime;         /**< W 按压时间 */
+       uint8_t S_PressTime;         /**< S 按压时间 */
+       uint8_t A_PressTime;         /**< A 按压时间 */
+       uint8_t D_PressTime;         /**< D 按压时间 */
+
+       uint8_t Shift_PreeNumber;    /**< Shift 按键翻转计数器 */
+       uint8_t Ctrl_PreeNumber;     /**< Ctrl 按键翻转计数器 */
+       uint8_t Q_PreeNumber;        /**< Q 按键翻转计数器 */
+       uint8_t E_PreeNumber;        /**< E 按键翻转计数器 */
+       uint8_t R_PreeNumber;        /**< R 按键翻转计数器 */
+       uint8_t F_PreeNumber;        /**< F 按键翻转计数器 */
+       uint8_t G_PreeNumber;        /**< G 按键翻转计数器 */
+       uint8_t Z_PreeNumber;        /**< Z 按键翻转计数器 */
+       uint8_t X_PreeNumber;        /**< X 按键翻转计数器 */
+       uint8_t C_PreeNumber;        /**< C 按键翻转计数器 */
+       uint8_t V_PreeNumber;        /**< V 按键翻转计数器 */
+       uint8_t B_PreeNumber;        /**< B 按键翻转计数器 */
+    } KeyBoard;
+
 } VT13_Typedef;
 
+#pragma pack(push, 1)
+
+/**
+ * @brief VT13 原始数据帧 21 字节位域结构体定义
+ * @note 严格对应官方数据帧的位偏移量（Offset）与长度（Length）
+ */
+typedef struct {
+    // Byte 0 - 1
+    uint8_t header1;            /**< 帧头1：固定值 0xA9 */
+    uint8_t header2;            /**< 帧头2：固定值 0x53 */
+
+    // Byte 2 - 9 (遥控器与辅助按键)
+    uint16_t channel0    : 11;  /**< 通道 0：接收端右摇杆水平位置 */
+    uint16_t channel1    : 11;  /**< 通道 1：接收端右摇杆竖直位置 */
+    uint16_t channel2    : 11;  /**< 通道 2：接收端左摇杆竖直位置 */
+    uint16_t channel3    : 11;  /**< 通道 3：接收端左摇杆水平位置 */
+    uint16_t mode_sw     : 2;   /**< 挡位切换开关位置 (C:0, N:1, S:2) */
+    uint16_t pause       : 1;   /**< 暂停按键是否按下 (0:未按下, 1:按下) */
+    uint16_t fn_1        : 1;   /**< 自定义按键（左）是否按下 (0:未按下, 1:按下) */
+    uint16_t fn_2        : 1;   /**< 自定义按键（右）是否按下 (0:未按下, 1:按下) */
+    uint16_t wheel       : 11;  /**< 接收端拨轮位置 */
+    uint16_t trigger     : 1;   /**< 接收端扳机键是否按下 (0:未按下, 1:按下) */
+    uint16_t reserved1   : 3;   /**< 遥控器域保留填充位 */
+
+    // Byte 10 - 15 (鼠标坐标轴)
+    int16_t mouse_x;            /**< 鼠标 X 轴左右移动速度 */
+    int16_t mouse_y;            /**< 鼠标 Y 轴前后移动速度 */
+    int16_t mouse_z;            /**< 鼠标 Z 轴滚轮滚动速度 */
+
+    // Byte 16 (鼠标按键)
+    uint8_t mouse_l      : 2;   /**< 鼠标左键按下状态 */
+    uint8_t mouse_r      : 2;   /**< 鼠标右键按下状态 */
+    uint8_t mouse_m      : 2;   /**< 鼠标中键按下状态 */
+    uint8_t reserved2    : 2;   /**< 鼠标按键保留填充位 */
+
+    // Byte 17 - 18 (键盘按键)
+    uint16_t key_w       : 1;   /**< W 键按下状态 */
+    uint16_t key_s       : 1;   /**< S 键按下状态 */
+    uint16_t key_a       : 1;   /**< A 键按下状态 */
+    uint16_t key_d       : 1;   /**< D 键按下状态 */
+    uint16_t key_shift   : 1;   /**< Shift 键按下状态 */
+    uint16_t key_ctrl    : 1;   /**< Ctrl 键按下状态 */
+    uint16_t key_q       : 1;   /**< Q 键按下状态 */
+    uint16_t key_e       : 1;   /**< E 键按下状态 */
+    uint16_t key_r       : 1;   /**< R 键按下状态 */
+    uint16_t key_f       : 1;   /**< F 键按下状态 */
+    uint16_t key_g       : 1;   /**< G 键按下状态 */
+    uint16_t key_z       : 1;   /**< Z 键按下状态 */
+    uint16_t key_x       : 1;   /**< X 键按下状态 */
+    uint16_t key_c       : 1;   /**< C 键按下状态 */
+    uint16_t key_v       : 1;   /**< V 键按下状态 */
+    uint16_t key_b       : 1;   /**< B 键按下状态 */
+
+    // Byte 19 - 20 (CRC)
+    uint16_t crc16;             /**< CRC-16/CCITT-FALSE 校验和 */
+} VT13_FrameTypeDef;
+
+#pragma pack(pop)
+
+/**
+ * @brief VT13 联合体，方便接收缓冲区指针转换
+ */
 typedef union {
-	uint8_t GetData[21];
+    uint8_t GetData[21];
+    VT13_FrameTypeDef Frame;
 } VT13_UNION_Typdef;
 
+/**
+ * @brief 解析入口函数
+ * @param Data 21字节原始数据输入缓冲区指针
+ * @param VT13 解析结果目标结构体指针
+ */
 void VT13_Resolved(uint8_t* Data, VT13_Typedef* VT13);
 
-// --- CRC16 查找表 ---
+/**
+ * @brief CRC16 查找表
+ */
 static const uint16_t crc16_tab[256] = {
     0x0000, 0x1189, 0x2312, 0x329b, 0x4624, 0x57ad, 0x6536, 0x74bf, 0x8c48, 0x9dc1, 0xaf5a, 0xbed3, 0xca6c, 0xdbe5, 0xe97e, 0xf8f7,
     0x1081, 0x0108, 0x3393, 0x221a, 0x56a5, 0x472c, 0x75b7, 0x643e, 0x9cc9, 0x8d40, 0xbfdb, 0xae52, 0xdaed, 0xcb64, 0xf9ff, 0xe876,

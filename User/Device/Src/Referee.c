@@ -53,6 +53,7 @@ void Referee_System_Frame_Update(uint8_t *Buff, uint16_t Size)
 
 static void Referee_System_Info_Update(uint16_t cmd_id, uint8_t *data_ptr, User_Data_T *usr_data)
 {
+
     switch (cmd_id)
     {
         case game_state:
@@ -138,4 +139,34 @@ static void Referee_System_Info_Update(uint16_t cmd_id, uint8_t *data_ptr, User_
         default:
             break;
     }
+}
+
+
+static uint8_t referee_tx_seq = 0;
+
+/**
+  * @brief  裁判系统通用发送函数
+  * @param  cmd_id: 命令码
+  * @param  p_data: 负载数据指针
+  * @param  len: 负载数据长度
+  */
+void Referee_Send_Data(uint16_t cmd_id, uint8_t *p_data, uint16_t len)
+{
+    static uint8_t tx_buf[REFEREE_RXFRAME_LENGTH]; // 发送缓冲区
+    uint16_t frame_length = FrameHeader_Length + CMDID_Length + len + CRC16_Length;
+
+    tx_buf[0] = 0xA5;                                  // SOF
+    tx_buf[1] = (uint8_t)(len & 0x00FF);               // Data Length LSB
+    tx_buf[2] = (uint8_t)((len >> 8) & 0x00FF);        // Data Length MSB
+    tx_buf[3] = referee_tx_seq++;                      // Seq
+    Append_CRC8_Check_Sum(tx_buf, FrameHeader_Length); // 计算并添加 CRC8
+
+    tx_buf[5] = (uint8_t)(cmd_id & 0x00FF);
+    tx_buf[6] = (uint8_t)((cmd_id >> 8) & 0x00FF);
+
+    memcpy(&tx_buf[7], p_data, len);
+
+    Append_CRC16_Check_Sum(tx_buf, frame_length);
+
+    HAL_UART_Transmit(&huart1, tx_buf, frame_length, HAL_MAX_DELAY);
 }

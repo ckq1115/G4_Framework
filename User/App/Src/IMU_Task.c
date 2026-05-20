@@ -121,7 +121,7 @@ CCM_FUNC void IMU_Update_Task(float dt_s)
     {
         case TEMP_INIT:
             IMU_Temp_Control_Init();
-            mahony_init(&mahony_filter, 5.0f, 0.01f, 0.9f,dt_s);
+            mahony_init(&mahony_filter, 2.0f, 0.01f, 0.9f,dt_s);
 #ifdef DEBUG_MODE
             imu_ctrl_state = TEMP_PID_CTRL;
 #endif
@@ -177,7 +177,7 @@ CCM_FUNC void IMU_Update_Task(float dt_s)
 
         case FUSION_RUN:
             WS2812_SetPixel(0, 0, 60, 40);    // 绿色：正常运行
-            //HAL_TIM_PWM_Start(&htim20, TIM_CHANNEL_2);// 陀螺仪零漂收集结束后开启蜂鸣器
+            HAL_TIM_PWM_Start(&htim20, TIM_CHANNEL_2);// 陀螺仪零漂收集结束后开启蜂鸣器
             const float AXIS_DIR[3] = {1.0f, -1.0f, -1.0f};// 根据安装方向调整轴向，确保输出符合右手坐标系
             for (int i = 0; i < 3; i++) {
                 IMU_Data.gyro[i] = (IMU_Data.gyro[i] - IMU_Data.gyro_correct[i]) * AXIS_DIR[i];
@@ -191,6 +191,10 @@ CCM_FUNC void IMU_Update_Task(float dt_s)
             IMU_Data.gyro[0], IMU_Data.gyro[1], IMU_Data.gyro[2],
             IMU_Data.accel[0], IMU_Data.accel[1], IMU_Data.accel[2],dt_s);
             mahony_output(&mahony_filter);
+            IMU_Data.q[0] = mahony_filter.q0;
+            IMU_Data.q[1] = mahony_filter.q1;
+            IMU_Data.q[2] = mahony_filter.q2;
+            IMU_Data.q[3] = mahony_filter.q3;
             IMU_Data.pitch = mahony_filter.pitch;
             IMU_Data.roll = mahony_filter.roll;
             IMU_Data.yaw = mahony_filter.yaw;
@@ -246,7 +250,7 @@ void IMU_Gyro_Zero_Calibration_Task(void)
         float gyro_var  = (gyro_sq_sum[i] * div) - (mean_g * mean_g);
         float accel_var = (accel_sq_sum[i] * div) - (mean_a * mean_a);
         // 判定阈值，如果超过阈值，认为数据不稳定，需重新采集
-        if (gyro_var > 0.003f || accel_var > 0.002f)
+        if (gyro_var > 0.01f || accel_var > 0.01f)
         {
             is_stable = 0;
             break;

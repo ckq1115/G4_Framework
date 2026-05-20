@@ -6,21 +6,18 @@
 //DBUS
 uint8_t DBUS_RX_DATA[18];
 DBUS_Typedef DBUS = { 0 };
-DBUS_UNION_Typdef DBUS_UNION = { 0 };
 
 uint8_t VT13_RX_DATA[21];
-VT13_Typedef VT13;
-VT13_UNION_Typdef VT13_UNION;
+VT13_Typedef VT13 = { 0 };
 
 CCM_DATA MOTOR_Typdef All_Motor;
 CCM_DATA ROOT_STATUS_Typedef ROOT_Status;
 ALL_POWER_RX All_Power = {0};
 
 CONTAL_Typedef contal;
-CAP_RXDATA CAP_Get;
 
 User_Data_T User_data;
-uint8_t Referee_Rx_Buf[2][REFEREE_RXFRAME_LENGTH];
+uint8_t Referee_Rx_Buf[REFEREE_RXFRAME_LENGTH];
 
 uint8_t rx_buffer[64];
 SpeedData_t current_data;
@@ -49,13 +46,13 @@ void All_Init() {
     volatile uint32_t tmp5 = huart5.Instance->RDR;
     (void)tmp5;
     HAL_UARTEx_ReceiveToIdle_DMA(&huart5, VT13_RX_DATA, 21);//图传链路串口
-    __HAL_DMA_DISABLE_IT(huart1.hdmarx, DMA_IT_HT);//关闭 DMA 半传中断
+    __HAL_DMA_DISABLE_IT(huart5.hdmarx, DMA_IT_HT);//关闭 DMA 半传中断
 
     HAL_UART_DMAStop(&huart1);
     __HAL_UART_CLEAR_FLAG(&huart1, UART_CLEAR_OREF | UART_CLEAR_FEF | UART_CLEAR_NEF | UART_CLEAR_PEF);
     volatile uint32_t tmp1 = huart1.Instance->RDR;
     (void)tmp1;
-    HAL_UARTEx_ReceiveToIdle_DMA(&huart1, Referee_Rx_Buf[0], REFEREE_RXFRAME_LENGTH);//裁判系统串口
+    HAL_UARTEx_ReceiveToIdle_DMA(&huart1, Referee_Rx_Buf, REFEREE_RXFRAME_LENGTH);//裁判系统串口
     __HAL_DMA_DISABLE_IT(huart1.hdmarx, DMA_IT_HT);//关闭 DMA 半传中断
 
     HAL_UART_DMAStop(&huart2);
@@ -80,5 +77,6 @@ void All_Init() {
     __HAL_TIM_SET_COMPARE(&htim20, TIM_CHANNEL_2, 100.0);
     HAL_Delay(500);
     __HAL_TIM_SET_COMPARE(&htim20, TIM_CHANNEL_2, 0);
-    HAL_TIM_PWM_Stop(&htim20, TIM_CHANNEL_2);
+    //HAL_TIM_PWM_Stop(&htim20, TIM_CHANNEL_2);
+    Buzzer_Start();
 }

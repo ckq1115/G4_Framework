@@ -63,6 +63,7 @@ void IMU_Task(void *argument)
         //ICM42688_Read_Fast(IMU_Data.gyro, IMU_Data.accel,&IMU_Data.temp);
         ICM42688_ResolveRaw(icm_raw_cache, IMU_Data.gyro, IMU_Data.accel,&IMU_Data.temp);
         IMU_Update_Task(imu_period_s);
+        DWT_SysTimeUpdate();
     }
 }
 
@@ -80,18 +81,21 @@ void Motor_Task(void *argument)
         Chassis_Control_Task(&All_Motor);
         //W25N01GV_ReadID(flash_id);// ID 应该是 EF AA 21
         VOFA_justfloat(
-            All_Power.P_Chassis.power,
-            All_Motor.DJI_6020_Steer[0].DATA.Speed_now,
+            IMU_Data.pitch,
+            All_Motor.DM4310_Pitch.DATA.tor/158.78f,
             All_Motor.DJI_6020_Steer[0].PID_S.Output,
             All_Motor.DJI_6020_Steer[1].DATA.Speed_now,
             All_Motor.DJI_6020_Steer[1].PID_S.Output,
             All_Motor.DJI_6020_Steer[2].DATA.Speed_now,
             All_Motor.DJI_6020_Steer[2].PID_S.Output,
-            pall,
-            All_Power.P_Chassis.buffer_energy,0);
+            All_Motor.DM4310_Yaw.PID_P.Ref,
+            IMU_Data.YawTotalAngle,All_Power.P_Chassis.power);
         osDelay(1);
     }
 }
+
+float current_temp = 0.0f;
+uint32_t last_tick = 0;
 
 void Test_Task(void *argument)
 {
@@ -104,36 +108,47 @@ void Test_Task(void *argument)
         .max_shoot = 10.0f
     };
     UI_Init(&h_ui, &ui_cfg);
+    Motor_Mode(&hfdcan2,0x01,0x300,0xfc);
+    Shoot_Control_Init();
     for(;;)
     {
         h_ui.yaw = IMU_Data.yaw;
         h_ui.pitch = IMU_Data.pitch;
         h_ui.cap = IMU_Data.roll;
         UI_OnLoop(&h_ui);
-        UI_SendUartCmd(&h_ui);
+        //UI_SendUartCmd(&h_ui);
         Ctrl_Test_Task();
+        //Ctrl_Shoot_Task();
+        //Test_Tx();
+        /*if (HAL_GetTick() - last_tick >= 250) {
+            last_tick = HAL_GetTick();
+            current_temp = Thermocouple_Read_Temp(&huart2);
+        }*/
+        //VOFA_justfloat(current_temp,0,0,0,0,0,0,0,0,0);
         osDelay(1);
     }
 }
 
-
+uint32_t loop_timer = 0;
+double dt = 0.0;
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size){
-    uint8_t *pData = huart->pRxBuffPtr;
+    loop_timer = DWT->CYCCNT;
     if (huart->Instance == USART3){
         if (Size == 18){
-            DBUS_Resolved(DBUS_RX_DATA, &DBUS, &DBUS_UNION);
+            DBUS_Resolved(DBUS_RX_DATA, &DBUS);
+            __HAL_DMA_DISABLE_IT(huart3.hdmarx, DMA_IT_HT);
         }
     }
     if (huart->Instance == UART5){
         if (Size == 21){
             VT13_Resolved(VT13_RX_DATA, &VT13);
+            __HAL_DMA_DISABLE_IT(huart5.hdmarx, DMA_IT_HT);
         }
     }
     if (huart->Instance == USART1){
-        uint8_t *next_buf = (pData == Referee_Rx_Buf[0]) ? Referee_Rx_Buf[1] : Referee_Rx_Buf[0];
-        HAL_UARTEx_ReceiveToIdle_DMA(huart, next_buf, REFEREE_RXFRAME_LENGTH);
+        dt = DWT_GetDeltaT64(&loop_timer);
+        Referee_System_Frame_Update(Referee_Rx_Buf,Size);
         __HAL_DMA_DISABLE_IT(huart1.hdmarx, DMA_IT_HT);//关闭 DMA 半传中断
-        Referee_System_Frame_Update(pData,Size);
     }
     if (huart->Instance == USART2) {
         if (Size >= sizeof(SpeedData_t))
@@ -149,6 +164,38 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size){
                 }
             }
         }
+    }
+}
+
+void HAL_UART_ErrorCallback(UART_HandleTypeDef * huart){
+    if (huart->Instance == USART3){
+        __HAL_UART_CLEAR_FLAG(&huart3, UART_CLEAR_OREF | UART_CLEAR_FEF | UART_CLEAR_NEF | UART_CLEAR_PEF);
+        volatile uint32_t tmp3 = huart3.Instance->RDR;
+        (void)tmp3;
+        HAL_UARTEx_ReceiveToIdle_DMA(&huart3,DBUS_RX_DATA,18);//DBUS串口
+        __HAL_DMA_DISABLE_IT(huart3.hdmarx, DMA_IT_HT);//关闭 DMA 半传中断
+    }
+    if (huart->Instance == UART5){
+        __HAL_UART_CLEAR_FLAG(&huart5, UART_CLEAR_OREF | UART_CLEAR_FEF | UART_CLEAR_NEF | UART_CLEAR_PEF);
+        volatile uint32_t tmp5 = huart5.Instance->RDR;
+        (void)tmp5;
+        HAL_UARTEx_ReceiveToIdle_DMA(&huart5, VT13_RX_DATA, 21);//图传链路串口
+        __HAL_DMA_DISABLE_IT(huart5.hdmarx, DMA_IT_HT);//关闭 DMA 半传中断
+    }
+    if (huart->Instance == USART1){
+        __HAL_UART_CLEAR_FLAG(&huart1, UART_CLEAR_OREF | UART_CLEAR_FEF | UART_CLEAR_NEF | UART_CLEAR_PEF);
+        volatile uint32_t tmp1 = huart1.Instance->RDR;
+        (void)tmp1;
+        HAL_UARTEx_ReceiveToIdle_DMA(&huart1, Referee_Rx_Buf, REFEREE_RXFRAME_LENGTH);//裁判系统串口
+        __HAL_DMA_DISABLE_IT(huart1.hdmarx, DMA_IT_HT);//关闭 DMA 半传中断
+    }
+    if (huart->Instance == USART2) {
+        __HAL_UART_CLEAR_FLAG(&huart2, UART_CLEAR_OREF | UART_CLEAR_FEF | UART_CLEAR_NEF | UART_CLEAR_PEF);
+        volatile uint32_t tmp2 = huart2.Instance->RDR;
+        (void)tmp2;
+        __HAL_DMA_CLEAR_FLAG(&hdma_usart2_rx, DMA_FLAG_TC8 | DMA_FLAG_HT8 | DMA_FLAG_TE8);
+        HAL_UARTEx_ReceiveToIdle_DMA(&huart2, rx_buffer, 64);//上位机串口
+        __HAL_DMA_DISABLE_IT(huart2.hdmarx, DMA_IT_HT);//关闭 DMA 半传中断
     }
 }
 
@@ -296,6 +343,17 @@ CCM_FUNC void HAL_FDCAN_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t Rx
                 case 0x203:
                     DJI_Motor_Resolve(&All_Motor.DJI_2006_bo, data);
                     break;
+                case 0x500:
+                    CAN_TP_Rx_Parser(data, DLC_To_Bytes(rx.DataLength));
+                    break;
+                case 0x301:
+                    DM_1to4_Resolve(&All_Motor.DM4310_Yaw, data);
+                    break;
+                case 0x302:
+                    DM_1to4_Resolve(&All_Motor.DM4310_Pitch, data);
+                    break;
+                case 0x201:
+                    DJI_Motor_Resolve(&All_Motor.DJI_3508_Pull, data);
                 default:
                     break;
             }

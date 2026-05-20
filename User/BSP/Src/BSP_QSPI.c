@@ -5,7 +5,6 @@
 
 static volatile uint8_t qspi_xfer_done = 0;
 
-/* 中断回调函数：当 DMA 传输完成后由 HAL 库自动调用 */
 void HAL_QSPI_TxCpltCallback(QSPI_HandleTypeDef *hqspi) {
     if (hqspi == &hqspi1) {
         qspi_xfer_done = 1;

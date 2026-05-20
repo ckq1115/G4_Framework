@@ -13,7 +13,7 @@
 #include "ICM42688P.h"
 #include "tim.h"
 #include "usart.h"
-#include "WS2812.h"
+#include "TIM_PWM.h"
 #include "controller.h"
 #include "QuaternionEKF.h"
 #include "Vofa.h"
@@ -35,10 +35,11 @@
 #include "Chassis_Calc.h"
 #include "Chassis_Task.h"
 #include "Test_Task.h"
+#include "CAN_Comm.h"
+#include "Shoot_Task.h"
 
 extern uint8_t DBUS_RX_DATA[18];
 extern DBUS_Typedef DBUS;
-extern DBUS_UNION_Typdef DBUS_UNION;
 
 extern uint8_t VT13_RX_DATA[21];
 extern VT13_Typedef VT13;
@@ -47,7 +48,6 @@ extern VT13_UNION_Typdef VT13_UNION;
 extern MOTOR_Typdef All_Motor;
 
 extern CONTAL_Typedef contal;
-extern CAP_RXDATA CAP_Get;
 
 extern UI_t h_ui;
 

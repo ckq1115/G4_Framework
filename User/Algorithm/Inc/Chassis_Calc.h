@@ -59,7 +59,7 @@ typedef struct {
     float Swerve_offset[4]; // 舵轮零点偏角
     float drive_dir[4]; // 轮子正转方向 (1或-1)
     float phi[4];    // 轮子安装方位角 (rad)
-    float gear_d;    // 驱动电机减速比 (M3508通常19:1)
+    float gear_d;    // 驱动电机减速比
 } Swerve_Cfg_t;
 
 // 实时物理状态

@@ -63,30 +63,25 @@ static uint8_t W25N_CheckProgEraseFail(void) {
     return 0;
 }
 
-/* --- 公有接口函数 --- */
-
 uint8_t W25N01GV_Init(void) {
     QSPI_CommandTypeDef cmd;
     uint8_t reg = 0;
 
     BSP_QSPI_InitCommand(&cmd);
 
-    /* 1. 复位 */
+    // 复位
     cmd.Instruction = W25N_CMD_RESET;
     if (HAL_QSPI_Command(&hqspi1, &cmd, W25N_TIMEOUT_MS) != HAL_OK) return 1;
     HAL_Delay(1);
     if (W25N_WaitBusy(W25N_TIMEOUT_MS)) return 1;
-
-    /* 2. 解除写保护 */
+    // 解除写保护
     if (W25N_WriteStatus(W25N_SR1_PROTECTION, 0x00)) return 1;
-
-    /* 3. 使能 Quad 模式 */
+    // 使能 Quad 模式
     if (W25N_ReadStatus(W25N_SR2_CONFIGURATION, &reg)) return 1;
     if ((reg & W25N_SR2_QE_BIT) == 0) {
         reg |= W25N_SR2_QE_BIT;
         if (W25N_WriteStatus(W25N_SR2_CONFIGURATION, reg)) return 1;
     }
-
     return 0;
 }
 
@@ -104,7 +99,6 @@ uint8_t W25N01GV_ReadID(uint8_t *id) {
     return (HAL_QSPI_Receive(&hqspi1, id, W25N_TIMEOUT_MS) == HAL_OK) ? 0 : 1;
 }
 
-/* 读取一页：分两步 */
 uint8_t W25N01GV_ReadPage(uint16_t pageAddr, uint8_t *pBuffer, uint16_t size) {
     QSPI_CommandTypeDef cmd;
 
@@ -112,7 +106,7 @@ uint8_t W25N01GV_ReadPage(uint16_t pageAddr, uint8_t *pBuffer, uint16_t size) {
 
     BSP_QSPI_InitCommand(&cmd);
 
-    /* 第一步：将阵列数据搬运到 Buffer */
+    // 将阵列数据搬运到 Buffer
     cmd.Instruction     = W25N_CMD_PAGE_DATA_READ;
     cmd.AddressMode     = QSPI_ADDRESS_1_LINE;
     cmd.AddressSize     = QSPI_ADDRESS_16_BITS;
@@ -120,7 +114,7 @@ uint8_t W25N01GV_ReadPage(uint16_t pageAddr, uint8_t *pBuffer, uint16_t size) {
     if (HAL_QSPI_Command(&hqspi1, &cmd, W25N_TIMEOUT_MS) != HAL_OK) return 1;
     if (W25N_WaitBusy(W25N_TIMEOUT_MS)) return 1;
 
-    /* 第二步：从 Buffer 使用 Quad 模式读出 */
+    // 从 Buffer 使用 Quad 模式读出
     BSP_QSPI_InitCommand(&cmd);
     cmd.Instruction     = W25N_CMD_READ_DATA_QUAD;
     cmd.AddressMode     = QSPI_ADDRESS_1_LINE;

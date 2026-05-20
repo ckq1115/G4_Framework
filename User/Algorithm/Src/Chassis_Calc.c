@@ -132,7 +132,7 @@ void Omni_calc(float *wheel_rpm, float vx_temp, float vy_temp, float vr, OmniIni
 }
 
 //动力学前馈舵轮底盘解算
-#define M3508_NM_TO_RAW ( (1.0f / (15.76f * 0.0157f * 0.85f)) * (16384.0f / 20.0f) )
+#define M3508_NM_TO_RAW ( (1.0f / (15.7647f * 0.0157f * 0.85f)) * (16384.0f / 20.0f) )
 
 static float normalize_to_pi(float angle) {
     angle = fmodf(angle, 2.0f * PI);
@@ -149,15 +149,20 @@ uint8_t Swerve_Init(Swerve_Cfg_t *cfg, Swerve_State_t *state) {
     cfg->gear_d = 15.76f;
 
 
-    cfg->Swerve_offset[0] = (float)(-8.5f * 2*PI / 360.0f);
-    cfg->Swerve_offset[1] = (float)(83.5f * 2*PI / 360.0f);
+    /*cfg->Swerve_offset[0] = (float)(-9.0f * 2*PI / 360.0f);
+    cfg->Swerve_offset[1] = (float)(85.0f * 2*PI / 360.0f);
     cfg->Swerve_offset[2] = (float)(94.5f * 2*PI / 360.0f);
-    cfg->Swerve_offset[3] = (float)(127.5f * 2*PI / 360.0f);
+    cfg->Swerve_offset[3] = (float)(127.0f * 2*PI / 360.0f);*/
 
-    cfg->drive_dir[0] = 1;  cfg->drive_dir[1] = -1;
+    cfg->Swerve_offset[0] = (float)(148.5f * 2*PI / 360.0f);
+    cfg->Swerve_offset[1] = (float)(-28.0f * 2*PI / 360.0f);
+    cfg->Swerve_offset[2] = (float)(155.0f * 2*PI / 360.0f);
+    cfg->Swerve_offset[3] = (float)(146.5f * 2*PI / 360.0f);
+
+    cfg->drive_dir[0] = -1;  cfg->drive_dir[1] = 1;
     cfg->drive_dir[2] = 1;  cfg->drive_dir[3] = -1;
 
-    cfg->phi[0] = 0.25f * PI;  cfg->phi[1] = 0.75f * PI;
+    cfg->phi[0] = 0.75f * PI;  cfg->phi[1] = 0.25f * PI;
     cfg->phi[2] = 1.25f * PI;  cfg->phi[3] = 1.75f * PI;
 
     if (state != NULL) {

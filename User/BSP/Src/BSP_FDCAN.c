@@ -58,7 +58,7 @@ void FDCAN_Config(FDCAN_HandleTypeDef *hfdcan, uint32_t fifo)
  * @param len 数据长度（字节）
  * @return 对应的 DLC 值
  */
-static uint32_t BytesToDLC(uint32_t len) {
+uint32_t Bytes_To_DLC(uint32_t len) {
     switch (len) {
         case 0:  return FDCAN_DLC_BYTES_0;
         case 1:  return FDCAN_DLC_BYTES_1;
@@ -82,6 +82,33 @@ static uint32_t BytesToDLC(uint32_t len) {
 }
 
 /**
+ * @brief 将 FDCAN 硬件的 DLC 宏转换为实际的整数长度
+ */
+uint8_t DLC_To_Bytes(uint32_t dlc) {
+    // 针对不同芯片系列，宏定义的具体数值不同，但逻辑是一致的
+    switch (dlc) {
+        case FDCAN_DLC_BYTES_0: return 0;
+        case FDCAN_DLC_BYTES_1: return 1;
+        case FDCAN_DLC_BYTES_2: return 2;
+        case FDCAN_DLC_BYTES_3: return 3;
+        case FDCAN_DLC_BYTES_4: return 4;
+        case FDCAN_DLC_BYTES_5: return 5;
+        case FDCAN_DLC_BYTES_6: return 6;
+        case FDCAN_DLC_BYTES_7: return 7;
+        case FDCAN_DLC_BYTES_8: return 8;
+            // 如果是 CAN FD 模式，还需要处理以下部分
+        case FDCAN_DLC_BYTES_12: return 12;
+        case FDCAN_DLC_BYTES_16: return 16;
+        case FDCAN_DLC_BYTES_20: return 20;
+        case FDCAN_DLC_BYTES_24: return 24;
+        case FDCAN_DLC_BYTES_32: return 32;
+        case FDCAN_DLC_BYTES_48: return 48;
+        case FDCAN_DLC_BYTES_64: return 64;
+        default: return 8; // 默认容错处理
+    }
+}
+
+/**
  * @brief FDCAN发送通用函数
  * @param hfdcan FDCAN句柄
  * @param id     消息ID（标准帧）
@@ -95,7 +122,7 @@ uint8_t FDCAN_Send_Msg(FDCAN_HandleTypeDef *hfdcan, uint32_t id, uint8_t *data, 
         .Identifier = id, // 标准帧ID
         .IdType = FDCAN_STANDARD_ID, // 标准帧
         .TxFrameType = FDCAN_DATA_FRAME, // 数据帧
-        .DataLength = BytesToDLC(len), // 根据长度转换为DLC
+        .DataLength = Bytes_To_DLC(len), // 根据长度转换为DLC
         .ErrorStateIndicator = FDCAN_ESI_ACTIVE, // 错误状态指示器：主动状态
         .BitRateSwitch = FDCAN_BRS_OFF, // 位速率切换：关闭（如果需要FD模式请改为FDCAN_BRS_ON）
         .FDFormat = (len > 8) ? FDCAN_FD_CAN : FDCAN_CLASSIC_CAN, // 自动切换 FD 模式

@@ -26,8 +26,8 @@
 #define REG_WHO_AM_I        0x0075
 #define REG_GYRO_CONFIG1        0x0051
 #define REG_ACCEL_CONFIG1       0x0053
-#define REG_INT_CONFIG1          0x0064  // 新增：异步复位配置寄存器
-#define REG_INT_ENABLE0          0x0062  // 修正：真正的中断使能寄存器（DRDY等）
+#define REG_INT_CONFIG1          0x0064
+#define REG_INT_ENABLE0          0x0062
 // BANK 1
 #define REG_GYRO_CONFIG_STATIC2 0x010B
 #define REG_GYRO_CONFIG_STATIC3 0x010C

@@ -1,13 +1,13 @@
-//
-// Created by CaoKangqi on 2026/3/21.
-//
+/**
+ * @file VT13.c
+ * @brief RoboMaster 裁判系统相机图传模块 VT13 协议解析源文件
+ * @version 1.0
+ * @date 2026-03-21
+ * @author CaoKangqi
+ */
 
 #include "VT13.h"
 #include "CKQ_MATH.h"
-
-#define RUI_DF_KEY_UP    0
-#define RUI_DF_KEY_CLICK 1
-#define RUI_DF_KEY_PRESS 2
 
 static uint16_t get_crc16_check_sum(uint8_t *p_msg, uint16_t len, uint16_t crc16);
 static bool verify_crc16_check_sum(uint8_t *p_msg, uint16_t len);
@@ -17,67 +17,55 @@ static uint8_t VT_UpdateKeyStatus(uint8_t is_pressed, uint8_t *press_time);
 static void VT_HandleKeyToggle(uint8_t is_pressed, uint8_t *lock_flag, uint8_t *toggle_number);
 
 /**
- * @brief VT13 协议解析
+ * @brief VT13 协议解析函数
  */
 void VT13_Resolved(uint8_t* Data, VT13_Typedef* VT13)
 {
-    // 校验帧头 0xA9, 0x53 及 CRC16
-    if (Data[0] == 0XA9 && Data[1] == 0X53 && verify_crc16_check_sum(Data, 21))
+    VT13_FrameTypeDef* frame = (VT13_FrameTypeDef*)Data;
+    // 校验帧头 0xA9, 0x53 及整个数据帧的 CRC16
+    if (frame->header1 == 0XA9 && frame->header2 == 0X53 && verify_crc16_check_sum(Data, 21))
     {
         VT13->CRC_flag = true;
 
-        // 遥控器数据解算
-        VT13->Remote.Channel[0] = ((int16_t)(((uint16_t)(Data)[2] | (uint16_t)(Data)[3] << 8) & 0x07FF)) - 1024;
-        VT13->Remote.Channel[1] = ((int16_t)(((uint16_t)(Data)[3] >> 3 | (uint16_t)(Data)[4] << 5) & 0x07FF)) - 1024;
-        VT13->Remote.Channel[2] = ((int16_t)(((uint16_t)(Data)[4] >> 6 | (uint16_t)(Data)[5] << 2 | (uint16_t)(Data)[6] << 10) & 0x07FF)) - 1024;
-        VT13->Remote.Channel[3] = ((int16_t)(((uint16_t)(Data)[6] >> 1 | (uint16_t)(Data)[7] << 7) & 0x07FF)) - 1024;
-        VT13->Remote.wheel      = ((int16_t)(((uint16_t)(Data)[8] >> 1 | (uint16_t)(Data)[9] << 7) & 0x07FF)) - 1024;
+        VT13->Remote.Channel[0] = (int16_t)frame->channel0 - 1024;
+        VT13->Remote.Channel[1] = (int16_t)frame->channel1 - 1024;
+        VT13->Remote.Channel[2] = (int16_t)frame->channel2 - 1024;
+        VT13->Remote.Channel[3] = (int16_t)frame->channel3 - 1024;
+        VT13->Remote.wheel      = (int16_t)frame->wheel - 1024;
 
-        VT13->Remote.mode_sw = (Data[7] >> 4) & 0x03;
-        VT13->Remote.pause   = (Data[7] >> 6) & 0x01;
-        VT13->Remote.fn_1    = (Data[7] >> 7) & 0x01;
-        VT13->Remote.fn_2    = (Data[8] >> 0) & 0x01;
-        VT13->Remote.trigger = (Data[9] >> 4) & 0x01;
+        VT13->Remote.mode_sw    = frame->mode_sw;
+        VT13->Remote.pause      = frame->pause;
+        VT13->Remote.fn_1       = frame->fn_1;
+        VT13->Remote.fn_2       = frame->fn_2;
+        VT13->Remote.trigger    = frame->trigger;
 
-        // 鼠标数据解析
-        int16_t m_x = (int16_t)(Data[10] | (Data[11] << 8));
-        int16_t m_y = (int16_t)(Data[12] | (Data[13] << 8));
-        int16_t m_z = (int16_t)(Data[14] | (Data[15] << 8));
+        VT13->Mouse.X_Flt = VT_deadband(VT_OneFilter(VT13->Mouse.X_Flt, (float)frame->mouse_x, 500), -3.0e-3f, 3.0e-3f);
+        VT13->Mouse.Y_Flt = VT_deadband(VT_OneFilter(VT13->Mouse.Y_Flt, (float)frame->mouse_y, 500), -3.0e-3f, 3.0e-3f);
+        VT13->Mouse.Z_Flt = VT_deadband(VT_OneFilter(VT13->Mouse.Z_Flt, (float)frame->mouse_z, 500), -3.0e-3f, 3.0e-3f);
 
-        // 鼠标数值滤波与死区处理
-        VT13->Mouse.X_Flt = VT_deadband(VT_OneFilter(VT13->Mouse.X_Flt, (float)m_x, 500), -3.0e-3f, 3.0e-3f);
-        VT13->Mouse.Y_Flt = VT_deadband(VT_OneFilter(VT13->Mouse.Y_Flt, (float)m_y, 500), -3.0e-3f, 3.0e-3f);
-        VT13->Mouse.Z_Flt = VT_deadband(VT_OneFilter(VT13->Mouse.Z_Flt, (float)m_z, 500), -3.0e-3f, 3.0e-3f);
+        VT13->Mouse.L_State = VT_UpdateKeyStatus(frame->mouse_l & 0x01, (uint8_t*)&VT13->Mouse.L_PressTime);
+        VT13->Mouse.R_State = VT_UpdateKeyStatus(frame->mouse_r & 0x01, (uint8_t*)&VT13->Mouse.R_PressTime);
+        VT13->Mouse.M_State = VT_UpdateKeyStatus(frame->mouse_m & 0x01, (uint8_t*)&VT13->Mouse.M_PressTime);
 
-        // 鼠标按键状态更新 (L/R/M)
-        VT13->Mouse.L_State = VT_UpdateKeyStatus((Data[16] >> 0) & 0x01, (uint8_t*)&VT13->Mouse.L_PressTime);
-        VT13->Mouse.R_State = VT_UpdateKeyStatus((Data[16] >> 2) & 0x01, (uint8_t*)&VT13->Mouse.R_PressTime);
-        VT13->Mouse.M_State = VT_UpdateKeyStatus((Data[16] >> 4) & 0x01, (uint8_t*)&VT13->Mouse.M_PressTime);
+        VT13->KeyBoard.W = VT_UpdateKeyStatus(frame->key_w, &VT13->KeyBoard.W_PressTime);
+        VT13->KeyBoard.S = VT_UpdateKeyStatus(frame->key_s, &VT13->KeyBoard.S_PressTime);
+        VT13->KeyBoard.A = VT_UpdateKeyStatus(frame->key_a, &VT13->KeyBoard.A_PressTime);
+        VT13->KeyBoard.D = VT_UpdateKeyStatus(frame->key_d, &VT13->KeyBoard.D_PressTime);
 
-        // 键盘数据解析
-        uint16_t kb = (uint16_t)(Data[17] | (Data[18] << 8));
+        VT13->KeyBoard.Shift = frame->key_shift;
+        VT13->KeyBoard.Ctrl  = frame->key_ctrl;
+        VT13->KeyBoard.Q     = frame->key_q;
+        VT13->KeyBoard.E     = frame->key_e;
+        VT13->KeyBoard.R     = frame->key_r;
+        VT13->KeyBoard.F     = frame->key_f;
+        VT13->KeyBoard.G     = frame->key_g;
+        VT13->KeyBoard.Z     = frame->key_z;
+        VT13->KeyBoard.X     = frame->key_x;
+        VT13->KeyBoard.C     = frame->key_c;
+        VT13->KeyBoard.V     = frame->key_v;
+        VT13->KeyBoard.B     = frame->key_b;
 
-        // 基础 WASD
-        VT13->KeyBoard.W = VT_UpdateKeyStatus((kb >> 0) & 1, &VT13->KeyBoard.W_PressTime);
-        VT13->KeyBoard.S = VT_UpdateKeyStatus((kb >> 1) & 1, &VT13->KeyBoard.S_PressTime);
-        VT13->KeyBoard.A = VT_UpdateKeyStatus((kb >> 2) & 1, &VT13->KeyBoard.A_PressTime);
-        VT13->KeyBoard.D = VT_UpdateKeyStatus((kb >> 3) & 1, &VT13->KeyBoard.D_PressTime);
-
-        // 键盘功能键状态同步 (基础按下位)
-        VT13->KeyBoard.Shift = (kb >> 4) & 1;
-        VT13->KeyBoard.Ctrl  = (kb >> 5) & 1;
-        VT13->KeyBoard.Q     = (kb >> 6) & 1;
-        VT13->KeyBoard.E     = (kb >> 7) & 1;
-        VT13->KeyBoard.R     = (kb >> 8) & 1;
-        VT13->KeyBoard.F     = (kb >> 9) & 1;
-        VT13->KeyBoard.G     = (kb >> 10) & 1;
-        VT13->KeyBoard.Z     = (kb >> 11) & 1;
-        VT13->KeyBoard.X     = (kb >> 12) & 1;
-        VT13->KeyBoard.C     = (kb >> 13) & 1;
-        VT13->KeyBoard.V     = (kb >> 14) & 1;
-        VT13->KeyBoard.B     = (kb >> 15) & 1;
-
-        // 键盘锁定切换逻辑 (按下瞬时取反)
+        // 键盘锁存
         static uint8_t KeyLocks[12] = {0};
         VT_HandleKeyToggle(VT13->KeyBoard.Shift, &KeyLocks[0],  &VT13->KeyBoard.Shift_PreeNumber);
         VT_HandleKeyToggle(VT13->KeyBoard.Ctrl,  &KeyLocks[1],  &VT13->KeyBoard.Ctrl_PreeNumber);
@@ -91,6 +79,11 @@ void VT13_Resolved(uint8_t* Data, VT13_Typedef* VT13)
         VT_HandleKeyToggle(VT13->KeyBoard.C,     &KeyLocks[9],  &VT13->KeyBoard.C_PreeNumber);
         VT_HandleKeyToggle(VT13->KeyBoard.V,     &KeyLocks[10], &VT13->KeyBoard.V_PreeNumber);
         VT_HandleKeyToggle(VT13->KeyBoard.B,     &KeyLocks[11], &VT13->KeyBoard.B_PreeNumber);
+        if (memcmp(&frame->mouse_x, (const uint8_t[9]){0}, 9) != 0) {
+            VT13->Ctrl_Mode = 1;  // 键鼠有动作 -> 键鼠模式
+        } else {
+            VT13->Ctrl_Mode = 0;  // 键鼠全为0 -> 遥控模式
+        }
     }
     else
     {
@@ -99,24 +92,30 @@ void VT13_Resolved(uint8_t* Data, VT13_Typedef* VT13)
 }
 
 /**
- * @brief 更新按键按压时间，并判断当前状态（点按/长按）
+ * @brief 更新按键按压时间，并判断当前复合状态（释放/点按/长按）
+ * @param is_pressed 当前物理是否按下
+ * @param press_time 持续按下时间计数缓存
+ * @return 复合状态编码 (KEY_UP, KEY_CLICK, KEY_PRESS)
  */
 static uint8_t VT_UpdateKeyStatus(uint8_t is_pressed, uint8_t *press_time)
 {
     if (is_pressed)
     {
         if (*press_time < 250) (*press_time)++;
-        return (*press_time <= 20) ? RUI_DF_KEY_CLICK : RUI_DF_KEY_PRESS;
+        return (*press_time <= 20) ? VT13_KEY_CLICK : VT13_KEY_PRESS;
     }
     else
     {
         *press_time = 0;
-        return RUI_DF_KEY_UP;
+        return VT13_KEY_UP;
     }
 }
 
 /**
  * @brief 处理按键切换锁定逻辑（按下瞬时改变一次状态）
+ * @param is_pressed 物理按下检测
+ * @param lock_flag 触发边沿锁标志位
+ * @param toggle_number 状态转换标志寄存器（目标取反状态位）
  */
 static void VT_HandleKeyToggle(uint8_t is_pressed, uint8_t *lock_flag, uint8_t *toggle_number)
 {
@@ -132,7 +131,7 @@ static void VT_HandleKeyToggle(uint8_t is_pressed, uint8_t *lock_flag, uint8_t *
 }
 
 /**
- * @brief 鼠标一阶低通滤波
+ * @brief 鼠标数据一阶低通滤波
  */
 static float VT_OneFilter(float last, float now, float thresholdValue)
 {
@@ -145,7 +144,7 @@ static float VT_OneFilter(float last, float now, float thresholdValue)
 }
 
 /**
- * @brief 浮点死区
+ * @brief 浮点死区滤除
  */
 static float VT_deadband(float Value, float minValue, float maxValue)
 {
@@ -166,7 +165,7 @@ static uint16_t get_crc16_check_sum(uint8_t *p_msg, uint16_t len, uint16_t crc16
 }
 
 /**
- * @brief 验证数据帧 CRC16
+ * @brief 验证数据帧 CRC16 完整性与正确性
  */
 static bool verify_crc16_check_sum(uint8_t *p_msg, uint16_t len)
 {

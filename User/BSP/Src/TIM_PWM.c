@@ -1,7 +1,9 @@
 //
 // Created by CaoKangqi on 2026/1/23.
 //
-#include "WS2812.h"
+#include "TIM_PWM.h"
+
+#include <math.h>
 #include <string.h>
 #include "BSP_DWT.h"
 #include "tim.h"
@@ -194,4 +196,48 @@ void WS2812_SetHSV(uint16_t index, uint8_t h, uint8_t s, uint8_t v) {
         }
     }
     WS2812_SetPixel(index, r, g, b);
+}
+
+/**
+ * @brief  非阻塞式蜂鸣器周期控制函数
+ * @param  activeTime : 一个周期内响的时间 (秒)
+ * @param  period     : 整个周期的总时间 (秒)
+ * @param  maxVolume  : 目标响度 (PWM 占空比数值，通常对应 CCR 寄存器值)
+ */
+void Buzzer_UpdateCycle(float activeTime, float period, uint16_t maxVolume) {
+    if (period <= 0.0f || activeTime <= 0.0f) {
+        __HAL_TIM_SET_COMPARE(&htim20, TIM_CHANNEL_2, 0);
+        return;
+    }
+
+    // 1. 获取当前高精度时间
+    float currentTime = DWT_GetTimeline_s();
+
+    // 2. 计算当前时间在周期内的位置 (取模运算)
+    // fmodf 用于对浮点数取余，得到当前处于周期的第几秒
+    float phase = fmodf(currentTime, period);
+
+    // 3. 判断当前处于“响”还是“灭”的状态
+    uint16_t currentCCR = 0;
+    if (phase < activeTime) {
+        // 处于“响”的时间段内
+        currentCCR = maxVolume;
+    } else {
+        // 处于“灭”的时间段内
+        currentCCR = 0;
+    }
+
+    // 4. 更新硬件 PWM 寄存器
+    __HAL_TIM_SET_COMPARE(&htim20, TIM_CHANNEL_2, currentCCR);
+}
+
+void Buzzer_Start() {
+    HAL_TIM_Base_Start_IT(&htim20);
+    HAL_TIM_PWM_Start(&htim20, TIM_CHANNEL_2);
+}
+void Buzzer_Stop() {
+    __HAL_TIM_SET_COMPARE(&htim20, TIM_CHANNEL_2, 0);
+}
+void Buzzer_Run() {
+    __HAL_TIM_SET_COMPARE(&htim20, TIM_CHANNEL_2, 50);
 }

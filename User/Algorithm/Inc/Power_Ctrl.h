@@ -32,7 +32,7 @@ void chassis_power_distribute(DJI_MOTOR_Typedef *motor[4],
 uint8_t chassis_power_control(CONTAL_Typedef *RUI_V_CONTAL_V,
                            User_Data_T *usr_data,
                            model_t *model,
-                           CAP_RXDATA *CAP_GET,
+                           Cap_t *CAP_GET,
                            MOTOR_Typdef *MOTOR);
 
 typedef struct {

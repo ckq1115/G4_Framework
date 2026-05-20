@@ -10,28 +10,20 @@
 void LK_Motor_Resolve(void *instance, uint8_t *RxMessage)
 {
     LK_MOTOR_DATA_Typedef *DATA = &((LK_MOTOR_Typedef *)instance)->DATA;
-
     DATA->temp = RxMessage[1];
-
     DATA->Current = ((uint16_t)RxMessage[3] << 8 | RxMessage[2]);
-
     DATA->lastRawSpeed = DATA->rawSpeed;
     DATA->rawSpeed     = ((uint16_t)RxMessage[5] << 8 | RxMessage[4]);
-
     DATA->lastRawEncode = DATA->rawEncode;
     DATA->rawEncode     = ((uint16_t)RxMessage[7] << 8 | RxMessage[6]);
-
     if(DATA->State)
     {
         int32_t diff = DATA->rawEncode - DATA->lastRawEncode;
-
         if(diff < -40000)
             DATA->round++;
         else if(diff > 40000)
             DATA->round--;
-
         DATA->lastConEncode = DATA->conEncode;
-
         DATA->conEncode =
             (float)DATA->round * 360.0f +
             (float)DATA->rawEncode * 360.0f / 65536.0f;

@@ -13,7 +13,6 @@ void Power_control_init(model_t *model) {
     model->Remaining_Buffer = 25.0f;
     model->rpm_to_rad = 2.0f * 3.14159265f / 60.0f;
 
-    // M3508 模型参数
     model->m3508.k1 = 1.5756e-02f;
     model->m3508.k2 = 1.94e-01f;
     model->m3508.k3 = 1.9202e-05f;
@@ -22,7 +21,7 @@ void Power_control_init(model_t *model) {
 
     model->m6020.k1 = 0.751f;  // 6020转矩常数项
     model->m6020.k2 = 2.5f;  // 6020内阻项
-    model->m6020.k3 = 2.1e-5f;// 6020铁损项4444
+    model->m6020.k3 = 2.1e-5f;// 6020铁损项
     model->m6020.k4 = 1.15f;  // 6020静态功率
     model->m6020.current_convert = 3.0f / 16384.0f;
 }
@@ -62,16 +61,20 @@ void solve_motor_group(DJI_MOTOR_Typedef *motors[4], float I_cmd[4], float P_lim
 }
 
 float pall = 0;
+float chassis_power_limit = 0;
 uint8_t chassis_power_control(CONTAL_Typedef *RUI_V_CONTAL_V, User_Data_T *usr_data,
-                              model_t *model, CAP_RXDATA *CAP_GET, MOTOR_Typdef *MOTOR)
+                              model_t *model, Cap_t *CAP_GET, MOTOR_Typdef *MOTOR)
 {
     pall = 0;
-    const uint16_t SuperMaxPower = 200;
-    float chassis_max_power = (usr_data->robot_status.chassis_power_limit != 0) ?
-                               usr_data->robot_status.chassis_power_limit : 50.0f - model->Kp*(model->Remaining_Buffer - All_Power.P_Chassis.buffer_energy);
+    const uint16_t SuperMaxPower = 150;
+    const uint16_t capValt = 14;
+    float PowerCompensation = - model->Kp*(model->Remaining_Buffer - All_Power.P_Chassis.buffer_energy);
+    float basic_power_limit = (usr_data->robot_status.chassis_power_limit != 0) ?
+                               usr_data->robot_status.chassis_power_limit + PowerCompensation: 45.0f ;
+    chassis_power_limit = basic_power_limit;
 
-    if (RUI_V_CONTAL_V->BOTTOM.CAP != 0) {
-        chassis_max_power += (float)SuperMaxPower;
+    if (CAP_GET->get.cap_state == 0 && CAP_GET->get.capVolt > capValt) {
+        chassis_power_limit += (float)SuperMaxPower;
     }
 
     float p3508_pred = 0, p6020_pred = 0;
@@ -93,21 +96,17 @@ uint8_t chassis_power_control(CONTAL_Typedef *RUI_V_CONTAL_V, User_Data_T *usr_d
 
     float total_pred = p3508_pred + p6020_pred;
 
-    if (total_pred > chassis_max_power) {
-        /*float ratio_3508 = p3508_pred / total_pred;
-        float ratio_6020 = p6020_pred / total_pred;*/
-
-        float limit_3508 = chassis_max_power -p6020_pred;
+    if (total_pred > chassis_power_limit) {
+        float limit_3508 = chassis_power_limit -p6020_pred;
         if (limit_3508 < 0) limit_3508 = 0;
-        //float limit_6020 = chassis_max_power * ratio_6020;
         solve_motor_group(ptr_3508, I_cmd_3508, limit_3508, &model->m3508, model->rpm_to_rad);
-        if (p6020_pred > chassis_max_power) solve_motor_group(ptr_6020, I_cmd_6020, chassis_max_power, &model->m6020, model->rpm_to_rad);
+        if (p6020_pred > chassis_power_limit) solve_motor_group(ptr_6020, I_cmd_6020, chassis_power_limit, &model->m6020, model->rpm_to_rad);
     }
 
     for (int i = 0; i < 4; i++) {
         MOTOR->DJI_3508_Chassis[i].PID_S.Output = I_cmd_3508[i];
         MOTOR->DJI_6020_Steer[i].PID_S.Output = I_cmd_6020[i];
-        pall += get_motor_power(ptr_3508[i], &model->m3508, model->rpm_to_rad)+get_motor_power(ptr_6020[i], &model->m6020, model->rpm_to_rad);
+        pall += get_motor_power(ptr_3508[i], &model->m3508, model->rpm_to_rad) + get_motor_power(ptr_6020[i], &model->m6020, model->rpm_to_rad);
     }
 
     return DF_READY;
@@ -128,35 +127,6 @@ void CAN_POWER_Rx(Power_Typedef* Power, uint8_t *rx_data)
     Power->power      = Power->bus_volt * Power->current;
 }
 //缓冲能量计算
-/*void Buffer_Calc(Power_Typedef* Power, User_Data_T *user_data)
-{
-    static uint8_t is_initialized = 0;
-    static uint8_t calc_counter = 0;
-
-    if (!is_initialized) {
-        Power->buffer_energy = 60.0f;
-        is_initialized = 1;
-    }
-
-    float power_limit = user_data->robot_status.chassis_power_limit;
-    float max_buffer_energy = 60.0f;
-    float now_power = Power->power;
-
-    calc_counter++;
-
-    if (calc_counter >= 10)
-    {
-        Power->buffer_energy += (power_limit - now_power) * 0.01f;
-        calc_counter = 0;
-    }
-
-    if (Power->buffer_energy > max_buffer_energy) {
-        Power->buffer_energy = max_buffer_energy;
-    }
-    else if (Power->buffer_energy < 0.0f) {
-        Power->buffer_energy = 0.0f;
-    }
-}*/
 void Buffer_Calc(Power_Typedef* Power, User_Data_T *user_data)
 {
     static uint8_t is_initialized = 0;
@@ -165,7 +135,7 @@ void Buffer_Calc(Power_Typedef* Power, User_Data_T *user_data)
         Power->buffer_energy = 60.0f;
         is_initialized = 1;
     }
-    float power_limit = 50.0f;
+    float power_limit = 45.0f;
     float max_buffer_energy = 60.0f;
     //power_limit = user_data->robot_status.chassis_power_limit;
     float now_power = Power->power;

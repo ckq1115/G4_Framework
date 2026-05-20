@@ -23,7 +23,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "tim.h"
-#include "WS2812.h"
+#include "TIM_PWM.h"
 #include "BSP_SPI.h"
 /* USER CODE END Includes */
 
