@@ -6,11 +6,9 @@
 //DBUS
 uint8_t DBUS_RX_DATA[18];
 DBUS_Typedef DBUS = { 0 };
-DBUS_UNION_Typdef DBUS_UNION = { 0 };
 
 uint8_t VT13_RX_DATA[21];
-VT13_Typedef VT13;
-VT13_UNION_Typdef VT13_UNION;
+VT13_Typedef VT13 = { 0 };
 
 CCM_DATA MOTOR_Typdef All_Motor;
 CCM_DATA ROOT_STATUS_Typedef ROOT_Status;

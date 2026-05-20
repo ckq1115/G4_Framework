@@ -60,9 +60,9 @@ void Chassis_Control_Task(MOTOR_Typdef *MOTOR) {
 
     float vx_tar,vy_tar,vw_tar;
 
-    vx_tar = DBUS.Remote.CH1_int16 * 0.003f + DBUS.KeyBoard.W * 1.0f - DBUS.KeyBoard.S * 1.0f ;
-    vy_tar = DBUS.Remote.CH0_int16 * 0.003f + DBUS.KeyBoard.D * 1.0f - DBUS.KeyBoard.A * 1.0f;
-    vw_tar = DBUS.Remote.CH2_int16 * 0.015f + DBUS.KeyBoard.E * 3.0f - DBUS.KeyBoard.Q * 3.0f + DBUS.Mouse.X_Flt * 0.02f;
+    vx_tar = DBUS.Remote.CH1 * 0.003f + DBUS.KeyBoard.W * 1.0f - DBUS.KeyBoard.S * 1.0f ;
+    vy_tar = DBUS.Remote.CH0 * 0.003f + DBUS.KeyBoard.D * 1.0f - DBUS.KeyBoard.A * 1.0f;
+    vw_tar = DBUS.Remote.CH2 * 0.015f + DBUS.KeyBoard.E * 3.0f - DBUS.KeyBoard.Q * 3.0f + DBUS.Mouse.X_Flt * 0.02f;
 
     // 外环 PID 计算 -> 产生加速度需求 (ax, ay, aw)
     PID_Calculate(&PID_Vx, S_Now.vx, vx_tar);

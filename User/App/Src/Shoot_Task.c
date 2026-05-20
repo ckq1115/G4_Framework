@@ -111,14 +111,11 @@ void Shoot_Control_Init() {
 }*/
 
 void Ctrl_Shoot_Task() {
-    // 0. 安全守护：若 S2 处于非合法档位，断电停机，防止飞车
-    if (DBUS.Remote.S2_u8 != 1 && DBUS.Remote.S2_u8 != 2) {
+    if (DBUS.Remote.S2 != 1 && DBUS.Remote.S2 != 2) {
         DJI_Motor_Send(&hfdcan2, 0x200, 0, 0, 0, 0);
         return;
     }
-
-    // 【一键方向切换开关】 1 默认方向，-1 整体反转方向
-    // 改变这个符号，模式一和模式二的正常转动方向会同时改变
+    // 方向切换开关 1 默认方向，-1 整体反转方向
     const int32_t dir_sign = -1;
 
     static uint8_t last_s1 = 3;
@@ -126,45 +123,41 @@ void Ctrl_Shoot_Task() {
     static float smooth_ref = 0.0f;
     static bool is_init = false;
 
-    // 1. 统一初始化
     if (!is_init) {
         smooth_ref = All_Motor.DJI_2006_bo.DATA.Angle_Infinite;
         g_feeder.target_pos_cnt = (int32_t)(smooth_ref / COUNTS_PER_SHOT);
         is_init = true;
     }
-
-    // 2. 状态机分流：配置不同模式的“控制特性”
+    // 配置不同模式的“控制特性”
     float target_freq = 0.0f;
     bool use_smoothing = false;
-
     // 两个模式的正常转动方向完全相同，统一使用 dir_sign
     int32_t dir = 1 * dir_sign;
 
-    if (DBUS.Remote.S2_u8 == 1) {
-        float raw_freq = 18.0f - (float)DBUS.Remote.Dial_int16 / 20.0f;
+    if (DBUS.Remote.S2 == 1) {
+        float raw_freq = 18.0f - (float)DBUS.Remote.Dial / 20.0f;
         target_freq = MATH_Limit_float(25.0f, 0.0f, raw_freq);
         use_smoothing = true;   // 模式一：开启平滑
     }
-    else if (DBUS.Remote.S2_u8 == 2) {
-        float raw_freq = 10.0f - (float)DBUS.Remote.Dial_int16 / 30.0f;
+    else if (DBUS.Remote.S2 == 2) {
+        float raw_freq = 10.0f - (float)DBUS.Remote.Dial / 30.0f;
         target_freq = MATH_Limit_float(25.0f, 0.0f, raw_freq);
         use_smoothing = false;  // 模式二：关闭平滑
     }
-
-    // 3. 统一频率限幅与时间判定
+    // 统一频率限幅与时间判定
     uint32_t now = HAL_GetTick();
     float interval = 1000.0f / target_freq;
 
-    // 4. 统一正常射击触发判定
-    if ((DBUS.Remote.S1_u8 == 2 && last_s1 == 3) || (DBUS.Remote.S1_u8 == 1)) {
+    // 统一正常射击触发判定
+    if ((DBUS.Remote.S1 == 2 && last_s1 == 3) || (DBUS.Remote.S1 == 1)) {
         if (now - last_shot_time >= (uint32_t)interval) {
             g_feeder.target_pos_cnt += dir;
             last_shot_time = now;
         }
     }
-    last_s1 = DBUS.Remote.S1_u8;
+    last_s1 = DBUS.Remote.S1;
 
-    // 5. 【核心变更】分模式处理卡弹（堵转）逻辑
+    // 分模式处理卡弹（堵转）逻辑
     if (All_Motor.DJI_2006_bo.DATA.Stuck_Flag[1] == 1)
     {
         All_Motor.DJI_2006_bo.PID_S.Output = 0.0f;
@@ -188,14 +181,12 @@ void Ctrl_Shoot_Task() {
                 g_feeder.target_pos_cnt -= 1;
             }
         }
-
         // 让平滑参考值立刻对齐当前实际位置，这样下一帧它会顺着‘前进方向’平滑移动到新的整弹点
         smooth_ref = All_Motor.DJI_2006_bo.DATA.Angle_Infinite;
         // 处理完毕，手动清除堵转标志位
         All_Motor.DJI_2006_bo.DATA.Stuck_Flag[1] = 0;
     }
-
-    // 6. 统一目标计算与运动平滑控制 (Ramp 阶跃生成器)
+    // 统一目标计算与运动平滑控制 (Ramp 阶跃生成器)
     float final_target = (float)g_feeder.target_pos_cnt * COUNTS_PER_SHOT;
 
     if (use_smoothing) {
@@ -218,7 +209,6 @@ void Ctrl_Shoot_Task() {
     PID_Calculate(&All_Motor.DJI_2006_bo.PID_P, All_Motor.DJI_2006_bo.DATA.Angle_Infinite, smooth_ref);
     PID_Calculate(&All_Motor.DJI_2006_bo.PID_S, All_Motor.DJI_2006_bo.DATA.Speed_now, All_Motor.DJI_2006_bo.PID_P.Output);
 
-    // 该函数在内部判定是否堵转并更新 Stuck_Flag[1]
     DJI_Motor_Stuck_Check(&All_Motor.DJI_2006_bo, 6000, 100, 100, 500);
     DJI_Motor_Send(&hfdcan2, 0x200, 0, 0, All_Motor.DJI_2006_bo.PID_S.Output, 0);
 }

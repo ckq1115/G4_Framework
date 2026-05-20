@@ -80,7 +80,7 @@ void Motor_Task(void *argument)
     {
         Chassis_Control_Task(&All_Motor);
         //W25N01GV_ReadID(flash_id);// ID 应该是 EF AA 21
-        /*VOFA_justfloat(
+        VOFA_justfloat(
             IMU_Data.pitch,
             All_Motor.DM4310_Pitch.DATA.tor/158.78f,
             All_Motor.DJI_6020_Steer[0].PID_S.Output,
@@ -89,7 +89,7 @@ void Motor_Task(void *argument)
             All_Motor.DJI_6020_Steer[2].DATA.Speed_now,
             All_Motor.DJI_6020_Steer[2].PID_S.Output,
             All_Motor.DM4310_Yaw.PID_P.Ref,
-            IMU_Data.YawTotalAngle,0);*/
+            IMU_Data.YawTotalAngle,All_Power.P_Chassis.power);
         osDelay(1);
     }
 }
@@ -117,23 +117,25 @@ void Test_Task(void *argument)
         h_ui.cap = IMU_Data.roll;
         UI_OnLoop(&h_ui);
         //UI_SendUartCmd(&h_ui);
-        //Ctrl_Test_Task();
-        Ctrl_Shoot_Task();
+        Ctrl_Test_Task();
+        //Ctrl_Shoot_Task();
         //Test_Tx();
-        if (HAL_GetTick() - last_tick >= 250) {
+        /*if (HAL_GetTick() - last_tick >= 250) {
             last_tick = HAL_GetTick();
             current_temp = Thermocouple_Read_Temp(&huart2);
-        }
-        VOFA_justfloat(current_temp,0,0,0,0,0,0,0,0,0);
+        }*/
+        //VOFA_justfloat(current_temp,0,0,0,0,0,0,0,0,0);
         osDelay(1);
     }
 }
 
-
+uint32_t loop_timer = 0;
+double dt = 0.0;
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size){
+    loop_timer = DWT->CYCCNT;
     if (huart->Instance == USART3){
         if (Size == 18){
-            DBUS_Resolved(DBUS_RX_DATA, &DBUS, &DBUS_UNION);
+            DBUS_Resolved(DBUS_RX_DATA, &DBUS);
             __HAL_DMA_DISABLE_IT(huart3.hdmarx, DMA_IT_HT);
         }
     }
@@ -144,6 +146,7 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size){
         }
     }
     if (huart->Instance == USART1){
+        dt = DWT_GetDeltaT64(&loop_timer);
         Referee_System_Frame_Update(Referee_Rx_Buf,Size);
         __HAL_DMA_DISABLE_IT(huart1.hdmarx, DMA_IT_HT);//关闭 DMA 半传中断
     }
@@ -161,6 +164,38 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size){
                 }
             }
         }
+    }
+}
+
+void HAL_UART_ErrorCallback(UART_HandleTypeDef * huart){
+    if (huart->Instance == USART3){
+        __HAL_UART_CLEAR_FLAG(&huart3, UART_CLEAR_OREF | UART_CLEAR_FEF | UART_CLEAR_NEF | UART_CLEAR_PEF);
+        volatile uint32_t tmp3 = huart3.Instance->RDR;
+        (void)tmp3;
+        HAL_UARTEx_ReceiveToIdle_DMA(&huart3,DBUS_RX_DATA,18);//DBUS串口
+        __HAL_DMA_DISABLE_IT(huart3.hdmarx, DMA_IT_HT);//关闭 DMA 半传中断
+    }
+    if (huart->Instance == UART5){
+        __HAL_UART_CLEAR_FLAG(&huart5, UART_CLEAR_OREF | UART_CLEAR_FEF | UART_CLEAR_NEF | UART_CLEAR_PEF);
+        volatile uint32_t tmp5 = huart5.Instance->RDR;
+        (void)tmp5;
+        HAL_UARTEx_ReceiveToIdle_DMA(&huart5, VT13_RX_DATA, 21);//图传链路串口
+        __HAL_DMA_DISABLE_IT(huart5.hdmarx, DMA_IT_HT);//关闭 DMA 半传中断
+    }
+    if (huart->Instance == USART1){
+        __HAL_UART_CLEAR_FLAG(&huart1, UART_CLEAR_OREF | UART_CLEAR_FEF | UART_CLEAR_NEF | UART_CLEAR_PEF);
+        volatile uint32_t tmp1 = huart1.Instance->RDR;
+        (void)tmp1;
+        HAL_UARTEx_ReceiveToIdle_DMA(&huart1, Referee_Rx_Buf, REFEREE_RXFRAME_LENGTH);//裁判系统串口
+        __HAL_DMA_DISABLE_IT(huart1.hdmarx, DMA_IT_HT);//关闭 DMA 半传中断
+    }
+    if (huart->Instance == USART2) {
+        __HAL_UART_CLEAR_FLAG(&huart2, UART_CLEAR_OREF | UART_CLEAR_FEF | UART_CLEAR_NEF | UART_CLEAR_PEF);
+        volatile uint32_t tmp2 = huart2.Instance->RDR;
+        (void)tmp2;
+        __HAL_DMA_CLEAR_FLAG(&hdma_usart2_rx, DMA_FLAG_TC8 | DMA_FLAG_HT8 | DMA_FLAG_TE8);
+        HAL_UARTEx_ReceiveToIdle_DMA(&huart2, rx_buffer, 64);//上位机串口
+        __HAL_DMA_DISABLE_IT(huart2.hdmarx, DMA_IT_HT);//关闭 DMA 半传中断
     }
 }
 
@@ -317,8 +352,8 @@ CCM_FUNC void HAL_FDCAN_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t Rx
                 case 0x302:
                     DM_1to4_Resolve(&All_Motor.DM4310_Pitch, data);
                     break;
-                case 0x18:
-                    DM_Standard_Resolve(&All_Motor.DM4310_Pitch, data);
+                case 0x201:
+                    DJI_Motor_Resolve(&All_Motor.DJI_3508_Pull, data);
                 default:
                     break;
             }

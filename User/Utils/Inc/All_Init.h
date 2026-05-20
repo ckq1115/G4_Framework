@@ -40,7 +40,6 @@
 
 extern uint8_t DBUS_RX_DATA[18];
 extern DBUS_Typedef DBUS;
-extern DBUS_UNION_Typdef DBUS_UNION;
 
 extern uint8_t VT13_RX_DATA[21];
 extern VT13_Typedef VT13;

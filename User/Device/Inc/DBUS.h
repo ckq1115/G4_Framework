@@ -1,176 +1,162 @@
-//
-// Created by CaoKangqi on 2026/1/19.
-//
+/**
+ * @file DBUS.h
+ * @brief  DBUS 协议解析头文件
+ * @version 1.0
+ * @date 2026-01-19
+ * @author CaoKangqi
+ */
 
 #ifndef G4_FRAMEWORK_DBUS_H
 #define G4_FRAMEWORK_DBUS_H
 
-#include "stdint.h"
-#include "string.h"
-#include "gpio.h"
-#include "usart.h"
+#include <stdbool.h>
+#include <stdint.h>
+#include <string.h>
 
-#ifndef PassState
+/**
+ * @brief 按键复合状态枚举
+ */
+typedef enum {
+    DBUS_KEY_UP    = 0,  /**< 按键未按下 */
+    DBUS_KEY_CLICK = 1,  /**< 按键点按（单击） */
+    DBUS_KEY_PRESS = 2   /**< 按键长按 */
+} KeyState_Env;
 
-#define RUI_DF_KEY_CLICK     1 // 点按
-#define RUI_DF_KEY_UP        0 // 松开
-#define RUI_DF_KEY_PRESS     2 // 长按
+/**
+ * @brief 应用层使用的解析结果结构体
+ */
+typedef struct {
+    int8_t ONLINE_JUDGE_TIME;       /**< 在线检测倒计时时间 */
+    int8_t Ctrl_Mode;
 
-#endif
-
-#define RUI_Mouse_VX RUI_V_DBUS.Mouse.X_Flt // 鼠标横向速度
-#define RUI_Mouse_VY RUI_V_DBUS.Mouse.Y_Flt // 鼠标纵向速度
-#define RUI_Mouse_L  RUI_V_DBUS.Mouse.R_State
-#define RUI_Mouse_R  RUI_V_DBUS.Mouse.L_State
-//按下为1松开为0
-#define RUI_KeyBoard_A     RUI_V_DBUS.KeyBoard.A     // a键调用
-#define RUI_KeyBoard_S     RUI_V_DBUS.KeyBoard.S     // s键调用
-#define RUI_KeyBoard_D     RUI_V_DBUS.KeyBoard.D     // d键调用
-#define RUI_KeyBoard_W     RUI_V_DBUS.KeyBoard.W     // w键调用
-#define RUI_KeyBoard_Q     RUI_V_DBUS.KeyBoard.Q     // q键调用
-#define RUI_KeyBoard_E     RUI_V_DBUS.KeyBoard.E     // e键调用
-#define RUI_KeyBoard_R     RUI_V_DBUS.KeyBoard.R     // r键调用
-#define RUI_KeyBoard_F     RUI_V_DBUS.KeyBoard.F     // r键调用
-#define RUI_KeyBoard_T     RUI_V_DBUS.KeyBoard.T     // t键调用
-#define RUI_KeyBoard_G     RUI_V_DBUS.KeyBoard.G     // g键调用
-#define RUI_KeyBoard_Z     RUI_V_DBUS.KeyBoard.Z     // z键调用
-#define RUI_KeyBoard_X     RUI_V_DBUS.KeyBoard.X     // x键调用
-#define RUI_KeyBoard_C     RUI_V_DBUS.KeyBoard.C     // c键调用
-#define RUI_KeyBoard_V     RUI_V_DBUS.KeyBoard.V     // v键调用
-#define RUI_KeyBoard_B     RUI_V_DBUS.KeyBoard.B     // b键调用
-#define RUI_KeyBoard_Ctrl  RUI_V_DBUS.KeyBoard.Ctrl  // Ctrl键调用
-#define RUI_KeyBoard_Shift RUI_V_DBUS.KeyBoard.Shift // shift键调用
-// 按下为1，再次按下为0
-#define RUI_KeyBoard_Q_Lock     RUI_V_DBUS.KeyBoard.Q_PreeNumber
-#define RUI_KeyBoard_E_Lock     RUI_V_DBUS.KeyBoard.E_PreeNumber
-#define RUI_KeyBoard_R_Lock     RUI_V_DBUS.KeyBoard.R_PreeNumber
-#define RUI_KeyBoard_F_Lock     RUI_V_DBUS.KeyBoard.F_PreeNumber
-#define RUI_KeyBoard_G_Lock     RUI_V_DBUS.KeyBoard.G_PreeNumber
-#define RUI_KeyBoard_Z_Lock     RUI_V_DBUS.KeyBoard.Z_PreeNumber
-#define RUI_KeyBoard_X_Lock     RUI_V_DBUS.KeyBoard.X_PreeNumber
-#define RUI_KeyBoard_C_Lock     RUI_V_DBUS.KeyBoard.C_PreeNumber
-#define RUI_KeyBoard_V_Lock     RUI_V_DBUS.KeyBoard.V_PreeNumber
-#define RUI_KeyBoard_B_Lock     RUI_V_DBUS.KeyBoard.B_PreeNumber
-#define RUI_KeyBoard_Shift_Lock RUI_V_DBUS.KeyBoard.Shift_PreeNumber
-#define RUI_KeyBoard_Ctrl_Lock  RUI_V_DBUS.KeyBoard.Ctrl_PreeNumber
-
-typedef struct
-{
-    int8_t ONLINE_JUDGE_TIME; // 在线检测时间
-    //遥控
-    struct
-    {
-        int16_t CH0_int16;
-        int16_t CH1_int16;
-        int16_t CH2_int16;
-        int16_t CH3_int16;
-        int16_t Dial_int16;
-        uint8_t S1_u8;
-        uint8_t S2_u8;
-        int8_t Error_int8;
+    /**
+     * @brief 遥控器数据解算
+     */
+    struct {
+        int16_t CH0;                /**< 右摇杆水平通道 (-660 ~ 660) */
+        int16_t CH1;                /**< 右摇杆竖直通道 (-660 ~ 660) */
+        int16_t CH2;                /**< 左摇杆竖直通道 (-660 ~ 660) */
+        int16_t CH3;                /**< 左摇杆水平通道 (-660 ~ 660) */
+        int16_t Dial;               /**< 左侧拨轮通道数据 (-660 ~ 660) */
+        uint8_t S1;                 /**< 右侧开关状态 */
+        uint8_t S2;                 /**< 左侧开关状态 */
+        int8_t Error;               /**< 错误标志 */
     } Remote;
-    //鼠标
-    struct
-    {
-        float X_Flt;
-        float X_Filter; // 处理后使用的鼠标值
-        float X_Max;    // 记录鼠标的最大值用来校准鼠标
-        float Y_Flt;
-        float Y_Filter; // 处理后使用的鼠标值
-        float Y_Max;    // 记录鼠标的最大值用来校准鼠标
-        float Z_Flt;
-        float Z_Filter; // 处理后使用的鼠标值
-        float Z_Max;    // 记录鼠标的最大值用来校准鼠标
-        uint8_t R_State : 4;
-        uint8_t L_State : 4;
-        uint8_t R_PressTime;
-        uint8_t L_PressTime;
+
+    /**
+     * @brief 鼠标数据解算与滤波
+     */
+    struct {
+        float X_Flt;                /**< 滤波处理后的鼠标 X 轴数据 */
+        float Y_Flt;                /**< 滤波处理后的鼠标 Y 轴数据 */
+        float Z_Flt;                /**< 滤波处理后的鼠标 Z 轴数据 */
+        uint8_t L_State;            /**< 左键复合状态 (点击/长按/释放) */
+        uint8_t R_State;            /**< 右键复合状态 (点击/长按/释放) */
+        uint8_t L_PressTime;        /**< 左键持续按下时间计时 */
+        uint8_t R_PressTime;        /**< 右键持续按下时间计时 */
     } Mouse;
-    //键盘
-    struct
-    {
-        uint8_t W : 4;
-        uint8_t S : 4;
-        uint8_t A : 4;
-        uint8_t D : 4;
-        uint8_t Shift : 4;
-        uint8_t Ctrl : 4;
-        uint8_t Q : 4;
-        uint8_t E : 4;
-        uint8_t R : 4;
-        uint8_t F : 4;
-        uint8_t G : 4;
-        uint8_t Z : 4;
-        uint8_t X : 4;
-        uint8_t C : 4;
-        uint8_t V : 4;
-        uint8_t B : 4;
-        uint8_t W_PressTime;
-        uint8_t S_PressTime;
-        uint8_t A_PressTime;
-        uint8_t D_PressTime;
-        uint8_t Shift_PreeNumber : 1;
-        uint8_t Ctrl_PreeNumber : 1;
-        uint8_t Q_PreeNumber : 1;
-        uint8_t E_PreeNumber : 1;
-        uint8_t R_PreeNumber : 1;
-        uint8_t F_PreeNumber : 1;
-        uint8_t G_PreeNumber : 1;
-        uint8_t Z_PreeNumber : 1;
-        uint8_t X_PreeNumber : 1;
-        uint8_t C_PreeNumber : 1;
-        uint8_t V_PreeNumber : 1;
-        uint8_t B_PreeNumber : 1;
+
+    /**
+     * @brief 键盘数据解算与锁定翻转
+     */
+    struct {
+        uint8_t W;                  /**< W 键复合状态 */
+        uint8_t S;                  /**< S 键复合状态 */
+        uint8_t A;                  /**< A 键复合状态 */
+        uint8_t D;                  /**< D 键复合状态 */
+        uint8_t Shift;              /**< Shift 键当前物理状态 */
+        uint8_t Ctrl;               /**< Ctrl 键当前物理状态 */
+        uint8_t Q;                  /**< Q 键当前物理状态 */
+        uint8_t E;                  /**< E 键当前物理状态 */
+        uint8_t R;                  /**< R 键当前物理状态 */
+        uint8_t F;                  /**< F 键当前物理状态 */
+        uint8_t G;                  /**< G 键当前物理状态 */
+        uint8_t Z;                  /**< Z 键当前物理状态 */
+        uint8_t X;                  /**< X 键当前物理状态 */
+        uint8_t C;                  /**< C 键当前物理状态 */
+        uint8_t V;                  /**< V 键当前物理状态 */
+        uint8_t B;                  /**< B 键当前物理状态 */
+
+        uint8_t W_PressTime;         /**< W 按压时间计数 */
+        uint8_t S_PressTime;         /**< S 按压时间计数 */
+        uint8_t A_PressTime;         /**< A 按压时间计数 */
+        uint8_t D_PressTime;         /**< D 按压时间计数 */
+
+        uint8_t Shift_PreeNumber;    /**< Shift 按键锁定翻转状态 (0或1) */
+        uint8_t Ctrl_PreeNumber;     /**< Ctrl 按键锁定翻转状态 (0或1) */
+        uint8_t Q_PreeNumber;        /**< Q 按键锁定翻转状态 (0或1) */
+        uint8_t E_PreeNumber;        /**< E 按键锁定翻转状态 (0或1) */
+        uint8_t R_PreeNumber;        /**< R 按键锁定翻转状态 (0或1) */
+        uint8_t F_PreeNumber;        /**< F 按键锁定翻转状态 (0或1) */
+        uint8_t G_PreeNumber;        /**< G 按键锁定翻转状态 (0或1) */
+        uint8_t Z_PreeNumber;        /**< Z 按键锁定翻转状态 (0或1) */
+        uint8_t X_PreeNumber;        /**< X 按键锁定翻转状态 (0或1) */
+        uint8_t C_PreeNumber;        /**< C 按键锁定翻转状态 (0或1) */
+        uint8_t V_PreeNumber;        /**< V 按键锁定翻转状态 (0或1) */
+        uint8_t B_PreeNumber;        /**< B 按键锁定翻转状态 (0或1) */
     } KeyBoard;
-}DBUS_Typedef;
+} DBUS_Typedef;
 
+#pragma pack(push, 1)
 
-typedef union  // 使用共用体整合数据
-{
-    struct
-    {
-// 遥控数据
-        uint64_t CH0 : 11;
-        uint64_t CH1 : 11;
-        uint64_t CH2 : 11;
-        uint64_t CH3 : 11;
-        uint64_t S1 : 2;
-        uint64_t S2 : 2;
-        // 鼠标数据
-        int64_t Mouse_X : 16;
-        int64_t Mouse_Y : 16;
-        int64_t Mouse_Z : 16;
-        int64_t Mouse_R : 8;
-        int64_t Mouse_L : 8;
-        // 键盘数据
-        uint64_t KeyBoard_W : 1;
-        uint64_t KeyBoard_S : 1;
-        uint64_t KeyBoard_A : 1;
-        uint64_t KeyBoard_D : 1;
-        uint64_t KeyBoard_Shift : 1;
-        uint64_t KeyBoard_Ctrl : 1;
-        uint64_t KeyBoard_Q : 1;
-        uint64_t KeyBoard_E : 1;
-        uint64_t KeyBoard_R : 1;
-        uint64_t KeyBoard_F : 1;
-        uint64_t KeyBoard_G : 1;
-        uint64_t KeyBoard_Z : 1;
-        uint64_t KeyBoard_X : 1;
-        uint64_t KeyBoard_C : 1;
-        uint64_t KeyBoard_V : 1;
-        uint64_t KeyBoard_B : 1;
-        // 遥控滑轮
-        uint64_t Direction : 11;
-        uint64_t : 0;
-    } DataNeaten;
-    // 接收到的数组
-    uint8_t  GetData[19];
-}DBUS_UNION_Typdef;
+/**
+ * @brief DBUS 原始数据帧 18 字节位域结构体定义
+ * @note 严格对应 DR16 接收机输出的 18 字节传统 DBUS 数据流
+ */
+typedef struct {
+    // 遥控器通道与开关数据 (Byte 0 - 5)
+    uint64_t channel0        : 11;  /**< 通道 0：右摇杆左右 (中点1024) */
+    uint64_t channel1        : 11;  /**< 通道 1：右摇杆上下 (中点1024) */
+    uint64_t channel2        : 11;  /**< 通道 2：左摇杆上下 (中点1024) */
+    uint64_t channel3        : 11;  /**< 通道 3：左摇杆左右 (中点1024) */
+    uint64_t switch_right    : 2;   /**< 右侧开关 S1 (1:上, 3:中, 2:下) */
+    uint64_t switch_left     : 2;   /**< 左侧开关 S2 (1:上, 3:中, 2:下) */
 
-//遥控接收
-void DBUS_Resolved(uint8_t* Data, DBUS_Typedef *RUI_V_DBUS,    DBUS_UNION_Typdef *RUI_V_DBUS_UNION);
-// 鼠标滤波
-float OneFilter(float last , float now , float thresholdValue);
-uint8_t KEY_STATUS(uint64_t  KEY , uint8_t PRESS_TIME);
+    // 鼠标轴向移动与按键数据 (Byte 6 - 13)
+    int16_t mouse_x;                /**< 鼠标 X 轴移动速度 */
+    int16_t mouse_y;                /**< 鼠标 Y 轴移动速度 */
+    int16_t mouse_z;                /**< 鼠标 Z 轴滚轮滚动速度 */
+    uint8_t mouse_press_l;          /**< 鼠标左键物理按下状态 (0:释放, 1:按下) */
+    uint8_t mouse_press_r;          /**< 鼠标右键物理按下状态 (0:释放, 1:按下) */
+
+    // 键盘按键数据按位映射 (Byte 14 - 15)
+    uint16_t key_w           : 1;   /**< W 键按下状态 */
+    uint16_t key_s           : 1;   /**< S 键按下状态 */
+    uint16_t key_a           : 1;   /**< A 键按下状态 */
+    uint16_t key_d           : 1;   /**< D 键按下状态 */
+    uint16_t key_shift       : 1;   /**< Shift 键按下状态 */
+    uint16_t key_ctrl        : 1;   /**< Ctrl 键按下状态 */
+    uint16_t key_q           : 1;   /**< Q 键按下状态 */
+    uint16_t key_e           : 1;   /**< E 键按下状态 */
+    uint16_t key_r           : 1;   /**< R 键按下状态 */
+    uint16_t key_f           : 1;   /**< F 键按下状态 */
+    uint16_t key_g           : 1;   /**< G 键按下状态 */
+    uint16_t key_z           : 1;   /**< Z 键按下状态 */
+    uint16_t key_x           : 1;   /**< X 键按下状态 */
+    uint16_t key_c           : 1;   /**< C 键按下状态 */
+    uint16_t key_v           : 1;   /**< V 键按下状态 */
+    uint16_t key_b           : 1;   /**< B 键按下状态 */
+
+    // 遥控器左侧拨轮/辅助通道 (Byte 16 - 17)
+    uint16_t dial            : 11;  /**< 左侧拨轮通道数据 (中点1024) */
+    uint16_t reserved        : 5;   /**< 保留填充位 */
+} DBUS_FrameTypeDef;
+
+#pragma pack(pop)
+
+/**
+ * @brief DBUS 联合体，兼容数组流读写与直接位域解算
+ */
+typedef union {
+    uint8_t GetData[18];
+    DBUS_FrameTypeDef Frame;
+} DBUS_UNION_TypeDef;
+
+/**
+ * @brief DBUS 接收数据解算
+ * @param Data 18 字节原始输入缓存数据指针
+ * @param DBUS 解算结果存放的应用层目标结构体指针
+ */
+void DBUS_Resolved(uint8_t* Data, DBUS_Typedef *DBUS);
 
 #endif //G4_FRAMEWORK_DBUS_H

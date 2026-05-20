@@ -42,6 +42,10 @@ void Test_Init(void) {
         //梯形积分,变速积分
         );//微分先行,微分滤波器
 
+    float PID_3508_Sp[3] = {5.0f, 0.1f, 0.0f}; // 3508 速度环参数
+    PID_Init(&All_Motor.DJI_3508_Pull.PID_S, 16384.0f, 3000.0f, PID_3508_Sp,
+                 0, 0, 0, 0, 0, Integral_Limit | ErrorHandle);
+
 }
 
 float a = 0.0f;
@@ -49,7 +53,7 @@ void Ctrl_Test_Task(void) {
     static float target_omega = 0;
     //All_Motor.DM4310_Yaw.PID_P.Ref = 50*cosf(2.0*3.14*1*t);
     if (IMU_Data.YawTotalAngle != 0.0f) {
-        target_omega = DBUS.Remote.CH2_int16 * 0.3f + DBUS.KeyBoard.E * 5.0f - DBUS.KeyBoard.Q * 5.0f + DBUS.Mouse.X_Flt * 2.0f;
+        target_omega = DBUS.Remote.CH2 * 0.3f + DBUS.KeyBoard.E * 5.0f - DBUS.KeyBoard.Q * 5.0f + DBUS.Mouse.X_Flt * 2.0f;
         All_Motor.DM4310_Yaw.PID_P.Ref += target_omega*0.001f;
     }
     /*PID_Calculate(&All_Motor.DM4310_Yaw.PID_P,All_Motor.DM4310_Yaw.DATA.Angle_Infinite,All_Motor.DM4310_Yaw.PID_P.Ref);
@@ -64,7 +68,11 @@ void Ctrl_Test_Task(void) {
     DM_Motor_Send(&hfdcan2,0x3FE,-All_Motor.DM4310_Yaw.PID_S.Output,-All_Motor.DM4310_Pitch.PID_S.Output-a,0,0);
     //DM_Motor_Send(&hfdcan2,0x3FE,All_Motor.DM4310_Yaw.PID_P.Ref,0,0,0);
 
-
+    All_Motor.DJI_3508_Pull.PID_S.Ref = DBUS.Remote.CH0 *13.7f;
+    PID_Calculate(&All_Motor.DJI_3508_Pull.PID_S,
+                      (float)All_Motor.DJI_3508_Pull.DATA.Speed_now,
+                      All_Motor.DJI_3508_Pull.PID_S.Ref);
+    DJI_Motor_Send(&hfdcan2,0x200,All_Motor.DJI_3508_Pull.PID_S.Output,0,0,0);
 }
 
 B2B_Tx_t Tx_Data = {0};
@@ -72,12 +80,12 @@ B2B_Rx_t Rx_Data = {0};
 custom_client_data_t my_control = {0};
 //自定义长度CAN通讯测试，用于双板通讯
 void Test_Tx(void) {
-    Tx_Data.ch0 = DBUS.Remote.CH0_int16;
-    Tx_Data.ch1 = DBUS.Remote.CH1_int16;
-    Tx_Data.ch2 = DBUS.Remote.CH2_int16;
-    Tx_Data.ch3 = DBUS.Remote.CH3_int16;
-    Tx_Data.s1 = DBUS.Remote.S1_u8;
-    Tx_Data.s2 = DBUS.Remote.S2_u8;
+    Tx_Data.ch0 = DBUS.Remote.CH0;
+    Tx_Data.ch1 = DBUS.Remote.CH1;
+    Tx_Data.ch2 = DBUS.Remote.CH2;
+    Tx_Data.ch3 = DBUS.Remote.CH3;
+    Tx_Data.s1 = DBUS.Remote.S1;
+    Tx_Data.s2 = DBUS.Remote.S2;
     Tx_Data.pitch = IMU_Data.pitch;
     Tx_Data.roll = IMU_Data.roll;
     Tx_Data.yaw = IMU_Data.yaw;
