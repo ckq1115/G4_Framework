@@ -35,4 +35,6 @@
 
 #define INIT_ANGLE 0;
 
+#define FEED_ZERO 1313;
+
 #endif //G4_FRAMEWORK_ALL_DEFINE_H

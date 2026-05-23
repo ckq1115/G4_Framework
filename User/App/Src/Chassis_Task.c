@@ -31,8 +31,8 @@ uint8_t Chassis_Control_Init(MOTOR_Typdef *MOTOR)
     float PID_Vw_Param[3] = {2.0f, 0.0f, 0.0f};
     PID_Init(&PID_Vw, 8.0f, 8.0f, PID_Vw_Param, 0, 0, 0, 0, 0, Integral_Limit | ErrorHandle);
 
-    float PID_6020_Pos[3] = {1000.0f, 0.01f, 0.0f}; // 6020 位置环参数
-    float PID_6020_Spd[3] = {80.0f, 0.01f, 0.0f}; // 6020 速度环参数
+    float PID_6020_Pos[3] = {800.0f, 0.01f, 0.0f}; // 6020 位置环参数
+    float PID_6020_Spd[3] = {85.0f, 0.01f, 0.0f}; // 6020 速度环参数
     float PID_3508_Spd[3] = {5.0f, 0.1f, 0.0f}; // 3508 速度环参数
 
     for (int i = 0; i < 4; i++)
@@ -62,7 +62,7 @@ void Chassis_Control_Task(MOTOR_Typdef *MOTOR) {
 
     vx_tar = DBUS.Remote.CH1 * 0.003f + DBUS.KeyBoard.W * 1.0f - DBUS.KeyBoard.S * 1.0f ;
     vy_tar = DBUS.Remote.CH0 * 0.003f + DBUS.KeyBoard.D * 1.0f - DBUS.KeyBoard.A * 1.0f;
-    vw_tar = DBUS.Remote.CH2 * 0.015f + DBUS.KeyBoard.E * 3.0f - DBUS.KeyBoard.Q * 3.0f + DBUS.Mouse.X_Flt * 0.02f;
+    vw_tar = DBUS.Remote.CH2 * 0.02f + DBUS.KeyBoard.E * 3.0f - DBUS.KeyBoard.Q * 3.0f + DBUS.Mouse.X_Flt * 0.02f;
 
     // 外环 PID 计算 -> 产生加速度需求 (ax, ay, aw)
     PID_Calculate(&PID_Vx, S_Now.vx, vx_tar);
@@ -71,8 +71,8 @@ void Chassis_Control_Task(MOTOR_Typdef *MOTOR) {
 
     // 逆解算：根据加速度和速度目标，计算各轮 Aim 角度、Aim 转速及驱动前馈
     float drive_ff[4];
-    /*Swerve_Inverse_Calc(drive_ff, MOTOR, PID_Vx.Output, PID_Vy.Output, PID_Vw.Output,
-                       vx_tar, vy_tar, vw_tar, &S_Cfg,&S_Now);*/
+    Swerve_Inverse_Calc(drive_ff, MOTOR, PID_Vx.Output, PID_Vy.Output, PID_Vw.Output,
+                       vx_tar, vy_tar, vw_tar, &S_Cfg,&S_Now);
     for (int i = 0; i < 4; i++) {
         // 6020舵向控制
         // 位置环：输入当前角度
@@ -95,7 +95,7 @@ void Chassis_Control_Task(MOTOR_Typdef *MOTOR) {
         chassis_power_control(&contal,&User_data,&chassis_model,&cap,&All_Motor);
     }
 
-    if (DBUS.ONLINE_JUDGE_TIME >= 1) {
+    if (DBUS.ONLINE_JUDGE_TIME >= 5) {
         DJI_Motor_Send(&hfdcan1, 0x200,
                        MOTOR->DJI_3508_Chassis[0].PID_S.Output,
                        MOTOR->DJI_3508_Chassis[1].PID_S.Output,
@@ -108,6 +108,9 @@ void Chassis_Control_Task(MOTOR_Typdef *MOTOR) {
                        MOTOR->DJI_6020_Steer[2].PID_S.Output,
                        MOTOR->DJI_6020_Steer[3].PID_S.Output);
     }
+    cap.set.Control.buffer_now = All_Power.P_Chassis.buffer_energy;
+
+    Power_Cap_Tx(&hfdcan2, 0x252, &cap,&User_data);
 }
 
 /*OmniInit_typdef OmniInit_t;

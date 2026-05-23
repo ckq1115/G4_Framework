@@ -22,10 +22,11 @@ typedef struct
     DJI_MOTOR_Typedef DJI_6020_Steer[4];
 
     DJI_MOTOR_Typedef DJI_3508_Pull;
-    DJI_MOTOR_Typedef DJI_2006_Trigger;
-    DJI_MOTOR_Typedef DJI_2006_Yaw;
+    DJI_MOTOR_Typedef DJI_3508_Trigger;
+    DJI_MOTOR_Typedef DJI_3508_Yaw;
     DJI_MOTOR_Typedef DJI_2006_bo;
 
+    DM_MOTOR_Typdef DM4310_Feed;
     DM_MOTOR_Typdef DM4310_Pitch;
     DM_MOTOR_Typdef DM4310_Yaw;
     LK_MOTOR_Typedef LK9025_Yaw;

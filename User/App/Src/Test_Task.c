@@ -41,11 +41,6 @@ void Test_Init(void) {
         Integral_Limit|ErrorHandle//积分限幅,输出滤波,堵转监测
         //梯形积分,变速积分
         );//微分先行,微分滤波器
-
-    float PID_3508_Sp[3] = {5.0f, 0.1f, 0.0f}; // 3508 速度环参数
-    PID_Init(&All_Motor.DJI_3508_Pull.PID_S, 16384.0f, 3000.0f, PID_3508_Sp,
-                 0, 0, 0, 0, 0, Integral_Limit | ErrorHandle);
-
 }
 
 float a = 0.0f;
@@ -67,12 +62,6 @@ void Ctrl_Test_Task(void) {
     a = 10*cosf(IMU_Data.pitch * DEG2RAD);
     DM_Motor_Send(&hfdcan2,0x3FE,-All_Motor.DM4310_Yaw.PID_S.Output,-All_Motor.DM4310_Pitch.PID_S.Output-a,0,0);
     //DM_Motor_Send(&hfdcan2,0x3FE,All_Motor.DM4310_Yaw.PID_P.Ref,0,0,0);
-
-    All_Motor.DJI_3508_Pull.PID_S.Ref = DBUS.Remote.CH0 *13.7f;
-    PID_Calculate(&All_Motor.DJI_3508_Pull.PID_S,
-                      (float)All_Motor.DJI_3508_Pull.DATA.Speed_now,
-                      All_Motor.DJI_3508_Pull.PID_S.Ref);
-    DJI_Motor_Send(&hfdcan2,0x200,All_Motor.DJI_3508_Pull.PID_S.Output,0,0,0);
 }
 
 B2B_Tx_t Tx_Data = {0};

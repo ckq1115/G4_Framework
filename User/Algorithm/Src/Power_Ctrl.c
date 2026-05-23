@@ -8,8 +8,10 @@
 #include "All_Define.h"
 #include <math.h>
 
+#include "TIM_PWM.h"
+
 void Power_control_init(model_t *model) {
-    model->Kp = 3.0f;
+    model->Kp = 2.0f;
     model->Remaining_Buffer = 25.0f;
     model->rpm_to_rad = 2.0f * 3.14159265f / 60.0f;
 
@@ -61,21 +63,44 @@ void solve_motor_group(DJI_MOTOR_Typedef *motors[4], float I_cmd[4], float P_lim
 }
 
 float pall = 0;
+int open = 1;
 float chassis_power_limit = 0;
 uint8_t chassis_power_control(CONTAL_Typedef *RUI_V_CONTAL_V, User_Data_T *usr_data,
                               model_t *model, Cap_t *CAP_GET, MOTOR_Typdef *MOTOR)
 {
     pall = 0;
-    const uint16_t SuperMaxPower = 150;
-    const uint16_t capValt = 14;
+    uint16_t SuperPower = 80;
+    const uint16_t Min_Capacity = 23;
+    const uint16_t Threshold_Capacity = 35;
     float PowerCompensation = - model->Kp*(model->Remaining_Buffer - All_Power.P_Chassis.buffer_energy);
     float basic_power_limit = (usr_data->robot_status.chassis_power_limit != 0) ?
-                               usr_data->robot_status.chassis_power_limit + PowerCompensation: 45.0f ;
+                               usr_data->robot_status.chassis_power_limit + PowerCompensation: 55.0f +  PowerCompensation;
     chassis_power_limit = basic_power_limit;
 
-    if (CAP_GET->get.cap_state == 0 && CAP_GET->get.capVolt > capValt) {
-        chassis_power_limit += (float)SuperMaxPower;
+    if (CAP_GET->get.capVolt < Threshold_Capacity && CAP_GET->get.capVolt > Min_Capacity) {
+        SuperPower *= (CAP_GET->get.capVolt - Min_Capacity)/(Threshold_Capacity - Min_Capacity);
     }
+    if (open == 1) {
+        if (CAP_GET->get.cap_state == 0 && CAP_GET->get.capVolt > Min_Capacity) {\
+            open_cap_flag = 1;
+            chassis_power_limit += (float)SuperPower;
+        }
+        else{
+            chassis_power_limit = basic_power_limit;
+            open_cap_flag = 0;
+        }
+    }
+    else if(open == 0){
+        open_cap_flag = 0;
+        chassis_power_limit = basic_power_limit;
+    }
+    if (open_cap_flag == 1) {
+        WS2812_SetPixel(1,0,60,0);
+    }
+    else if (open_cap_flag == 0) {
+        WS2812_SetPixel(1,60,0,0);
+    }
+
 
     float p3508_pred = 0, p6020_pred = 0;
     float I_cmd_3508[4], I_cmd_6020[4];
@@ -135,7 +160,7 @@ void Buffer_Calc(Power_Typedef* Power, User_Data_T *user_data)
         Power->buffer_energy = 60.0f;
         is_initialized = 1;
     }
-    float power_limit = 45.0f;
+    float power_limit = 55.0f;
     float max_buffer_energy = 60.0f;
     //power_limit = user_data->robot_status.chassis_power_limit;
     float now_power = Power->power;

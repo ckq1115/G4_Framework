@@ -48,6 +48,14 @@ typedef struct {
 
 extern Feeder_t g_feeder;
 
+typedef struct {
+    int32_t  target_pos_cnt; // 目标格子计数（每一次按键触发或初始化时更新）
+    float    target_pos;     // 转换后的脉冲目标位置（传递给 PID.Ref）
+    float    smooth_ref;     // 平滑过渡的目标值
+    uint8_t  is_init;        // 上电初始化标志
+    uint8_t  last_btn_state; // 记录上次按键状态以判断上升沿
+} DM4310_Feeder_t;
+extern DM4310_Feeder_t g_dm4310_feeder;
 void Shoot_Control_Init(void);
 void Ctrl_Shoot_Task(void);
 

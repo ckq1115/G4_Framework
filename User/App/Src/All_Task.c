@@ -96,7 +96,6 @@ void Motor_Task(void *argument)
 
 float current_temp = 0.0f;
 uint32_t last_tick = 0;
-
 void Test_Task(void *argument)
 {
     (void)argument;
@@ -108,7 +107,6 @@ void Test_Task(void *argument)
         .max_shoot = 10.0f
     };
     UI_Init(&h_ui, &ui_cfg);
-    Motor_Mode(&hfdcan2,0x01,0x300,0xfc);
     Shoot_Control_Init();
     for(;;)
     {
@@ -117,8 +115,8 @@ void Test_Task(void *argument)
         h_ui.cap = IMU_Data.roll;
         UI_OnLoop(&h_ui);
         //UI_SendUartCmd(&h_ui);
-        Ctrl_Test_Task();
-        //Ctrl_Shoot_Task();
+        //Ctrl_Test_Task();
+        Ctrl_Shoot_Task();
         //Test_Tx();
         /*if (HAL_GetTick() - last_tick >= 250) {
             last_tick = HAL_GetTick();
@@ -272,12 +270,6 @@ CCM_FUNC void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t Rx
         {
             switch (rx.Identifier)
             {
-                case 0x201:
-                    DJI_Motor_Resolve(&All_Motor.DJI_3508_Pull, data);
-                    break;
-                case 0x202:
-                    DJI_Motor_Resolve(&All_Motor.DJI_2006_Yaw, data);
-                    break;
                 case 0x205:
                     DJI_Motor_Resolve(&All_Motor.DJI_6020_Steer[0], data);
                     break;
@@ -333,10 +325,7 @@ CCM_FUNC void HAL_FDCAN_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t Rx
         {
             switch (rx.Identifier)
             {
-                case 0x305:
-                    DM_1to4_Resolve(&All_Motor.DM4310_Pitch, data);
-                    break;
-                case 0x602:
+                case 0x603:
                     CAN_POWER_Rx(&All_Power.P_Chassis, data);
                     Buffer_Calc(&All_Power.P_Chassis, &User_data);
                     break;
@@ -347,13 +336,13 @@ CCM_FUNC void HAL_FDCAN_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t Rx
                     CAN_TP_Rx_Parser(data, DLC_To_Bytes(rx.DataLength));
                     break;
                 case 0x301:
-                    DM_1to4_Resolve(&All_Motor.DM4310_Yaw, data);
-                    break;
-                case 0x302:
-                    DM_1to4_Resolve(&All_Motor.DM4310_Pitch, data);
+                    DM_1to4_Resolve(&All_Motor.DM4310_Feed, data);
                     break;
                 case 0x201:
                     DJI_Motor_Resolve(&All_Motor.DJI_3508_Pull, data);
+                case 0x288:
+                    Power_Cap_Rx(&cap, data);
+                    break;
                 default:
                     break;
             }

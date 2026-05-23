@@ -49,6 +49,7 @@ struct MAHONY_FILTER_t
 
     // 输出参数
     float pitch, roll, yaw;     // 俯仰/横滚/偏航角
+    float yaw_laps;
     float last_yaw,YawTotalAngle;          // 累积偏航角
 };
 

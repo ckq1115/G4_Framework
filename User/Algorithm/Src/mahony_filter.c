@@ -172,9 +172,14 @@ CCM_FUNC void mahony_output(struct MAHONY_FILTER_t *f) {
     f->yaw   = CORDIC_Atan2_Fast(f->rMat[1][0], f->rMat[0][0]);
 
     float yaw_diff = f->yaw - f->last_yaw;
-    if (yaw_diff > 180.0f)  yaw_diff -= 360.0f;
-    else if (yaw_diff < -180.0f) yaw_diff += 360.0f;
-
+    if (yaw_diff > 180.0f) {
+        yaw_diff -= 360.0f;
+        f->yaw_laps --;
+    }
+    else if (yaw_diff < -180.0f) {
+        yaw_diff += 360.0f;
+        f->yaw_laps ++;
+    }
     f->YawTotalAngle += yaw_diff;
     f->last_yaw = f->yaw;
 }
@@ -192,8 +197,14 @@ float r20 = f->rMat[2][0];
     f->yaw   = atan2f(f->rMat[1][0], f->rMat[0][0]) * RAD2DEG;
 
     float yaw_diff = f->yaw - f->last_yaw;
-    if (yaw_diff > 180.0f)  yaw_diff -= 360.0f;
-    else if (yaw_diff < -180.0f) yaw_diff += 360.0f;
+    if (yaw_diff > 180.0f) {
+        yaw_diff -= 360.0f;
+        f->yaw_laps --;
+    }
+    else if (yaw_diff < -180.0f) {
+        yaw_diff += 360.0f;
+        f->yaw_laps ++;
+    }
 
     f->YawTotalAngle += yaw_diff;
     f->last_yaw = f->yaw;
@@ -224,6 +235,7 @@ void mahony_init(struct MAHONY_FILTER_t *f, float Kp, float Ki, float alpha,floa
     f->pitch = 0;
     f->roll = 0;
     f->yaw = 0;
+    f->yaw_laps = 0;
     f->YawTotalAngle = 0;
 
     f->exInt = f->eyInt = 0;

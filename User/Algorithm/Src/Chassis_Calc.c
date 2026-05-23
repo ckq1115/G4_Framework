@@ -149,21 +149,16 @@ uint8_t Swerve_Init(Swerve_Cfg_t *cfg, Swerve_State_t *state) {
     cfg->gear_d = 15.76f;
 
 
-    /*cfg->Swerve_offset[0] = (float)(-9.0f * 2*PI / 360.0f);
-    cfg->Swerve_offset[1] = (float)(85.0f * 2*PI / 360.0f);
-    cfg->Swerve_offset[2] = (float)(94.5f * 2*PI / 360.0f);
-    cfg->Swerve_offset[3] = (float)(127.0f * 2*PI / 360.0f);*/
+    cfg->Swerve_offset[0] = (float)(-120.0f * 2*PI / 360.0f);
+    cfg->Swerve_offset[1] = (float)(240.0f * 2*PI / 360.0f);
+    cfg->Swerve_offset[2] = (float)(60.0f * 2*PI / 360.0f);
+    cfg->Swerve_offset[3] = (float)(60.0f * 2*PI / 360.0f);
 
-    cfg->Swerve_offset[0] = (float)(148.5f * 2*PI / 360.0f);
-    cfg->Swerve_offset[1] = (float)(-28.0f * 2*PI / 360.0f);
-    cfg->Swerve_offset[2] = (float)(155.0f * 2*PI / 360.0f);
-    cfg->Swerve_offset[3] = (float)(146.5f * 2*PI / 360.0f);
-
-    cfg->drive_dir[0] = -1;  cfg->drive_dir[1] = 1;
+    cfg->drive_dir[0] = 1;  cfg->drive_dir[1] = -1;
     cfg->drive_dir[2] = 1;  cfg->drive_dir[3] = -1;
 
-    cfg->phi[0] = 0.75f * PI;  cfg->phi[1] = 0.25f * PI;
-    cfg->phi[2] = 1.25f * PI;  cfg->phi[3] = 1.75f * PI;
+    cfg->phi[0] = 0.262f * PI;  cfg->phi[1] = 0.738f * PI;
+    cfg->phi[2] = 1.262f * PI;  cfg->phi[3] = 1.738f * PI;
 
     if (state != NULL) {
         __builtin_memset(state, 0, sizeof(Swerve_State_t));
